@@ -44,6 +44,16 @@ const schema = z.object({
   ADMIN_INITIAL_PASSWORD: z.string().optional(),
 
   DISABLE_SCHEDULER: bool,
+  DISABLE_WORKER: bool,
+
+  // --- Khusus pengembangan/pengujian (jangan diisi di produksi) ---
+  /** Base URL Drive API (default Google). Diarahkan ke scripts/dev/fake-drive.mjs saat uji. */
+  DRIVE_API_BASE: z.string().url().default('https://www.googleapis.com/drive/v3'),
+  DRIVE_UPLOAD_BASE: z.string().url().default('https://www.googleapis.com/upload/drive/v3'),
+  /** Token statis untuk fake Drive (melewati OAuth). */
+  DRIVE_FAKE_TOKEN: z.string().optional().default(''),
+  /** Sajikan /media & /assets dari Node (produksi: nginx). */
+  SERVE_STATIC: bool,
 });
 
 const parsed = schema.safeParse(process.env);

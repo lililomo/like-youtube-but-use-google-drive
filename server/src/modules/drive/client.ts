@@ -7,8 +7,8 @@ import { sha256Hex } from '../../lib/crypto.js';
 import { settings } from '../settings/service.js';
 import { FOLDER_MIME, type DriveFile } from './classify.js';
 
-const API = 'https://www.googleapis.com/drive/v3';
-const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+const API = config.DRIVE_API_BASE;
+const UPLOAD_API = config.DRIVE_UPLOAD_BASE;
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 export const OAUTH_SCOPES = [DRIVE_SCOPE, 'openid', 'email'];
 export const REDIRECT_URI = `${config.APP_URL}/api/admin/drive/oauth/callback`;
@@ -71,6 +71,7 @@ class TokenProvider {
   }
 
   async token(forceRefresh = false): Promise<string> {
+    if (config.DRIVE_FAKE_TOKEN) return config.DRIVE_FAKE_TOKEN;
     const client = this.build();
     if (forceRefresh) client.credentials = { ...client.credentials, access_token: undefined, expiry_date: 0 };
     try {
@@ -97,6 +98,7 @@ class TokenProvider {
 export const driveAuth = new TokenProvider();
 
 export function isDriveConfigured(): boolean {
+  if (config.DRIVE_FAKE_TOKEN) return true;
   if (settings.get('drive.auth_mode') === 'service_account') return settings.hasSecret('drive.service_account_json');
   return Boolean(settings.get('drive.oauth_client_id')) && settings.hasSecret('drive.oauth_client_secret') && settings.hasSecret('drive.oauth_refresh_token');
 }
