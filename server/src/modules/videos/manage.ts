@@ -8,6 +8,7 @@ import { requireUser } from '../../plugins/auth.js';
 import { audit } from '../audit/service.js';
 import { fileExtension, searchTextFrom, titleFromName } from '../drive/classify.js';
 import { DriveError, getFile, trashFile, updateFile } from '../drive/client.js';
+import { rotatePublicAssetKeys } from '../processing/assets.js';
 import { enqueueJob } from '../processing/queue.js';
 import { settings } from '../settings/service.js';
 import { invalidateStreamCache } from '../stream/routes.js';
@@ -114,6 +115,10 @@ export async function patchVideo(req: FastifyRequest, publicId: string, body: z.
   if (body.visibility !== undefined && body.visibility !== v.visibility) {
     await exec('UPDATE videos SET visibility = ? WHERE id = ?', [body.visibility, v.id]);
     invalidateStreamCache(v.public_id);
+    // URL thumbnail/storyboard lama (statis di /media) tidak boleh tetap bisa dibuka setelah privat.
+    if (body.visibility === 'private') {
+      await rotatePublicAssetKeys(v.id).catch((err) => req.log.warn({ err, video: v.public_id }, 'gagal merotasi kunci aset'));
+    }
     // appProperties agar database bisa dibangun ulang dari Drive (best effort).
     updateFile(v.drive_file_id, { appProperties: { dv: '1', dvVid: v.public_id, dvVis: body.visibility } }).catch((err) =>
       req.log.warn({ err, video: v.public_id }, 'gagal memperbarui appProperties visibilitas'),

@@ -6,7 +6,8 @@ function Wordmark({ name }: { name: string }) {
   return (
     <span className="dv-logo__word">
       <b>{first}</b>
-      {rest.length > 0 && <span>{rest.join(' ')}</span>}
+      {/* spasi asli (bukan margin) agar teks terlihat = nama aksesibel (Lighthouse label-content-name-mismatch) */}
+      {rest.length > 0 && <> <span>{rest.join(' ')}</span></>}
     </span>
   );
 }
@@ -52,7 +53,7 @@ export function LogoContent({ site }: { site: SiteInfo }) {
 export function Logo({ onClick }: { onClick?: () => void }) {
   const site = useSite();
   return (
-    <Link to="/" className="dv-logo" aria-label={`Beranda ${site.name}`} title={`Beranda ${site.name}`} onClick={onClick}>
+    <Link to="/" className="dv-logo" aria-label={`${site.name} - Beranda`} title={`${site.name} - Beranda`} onClick={onClick}>
       <LogoContent site={site} />
     </Link>
   );

@@ -172,16 +172,55 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** tidak ada perubahan konfigurasi server.
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-007 — Step 16 (operasional): logrotate, backup DB harian, backup .env, gzip, smoke & uji keamanan
+- **Asal:** Step 16 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy
+- **Butuh user:** 🧑 ya — hanya bila API aaPanel untuk cron backup gagal (user membuat cron lewat UI, langkah 2b). Langkah lain tidak.
+- **Kenapa:** tanpa logrotate log aplikasi tumbuh tanpa batas; tanpa backup harian data DB (user, playlist, histori, settings terenkripsi) bisa hilang; tanpa salinan `.env` (`APP_KEY`) secret Drive di DB tidak bisa dibaca setelah server dipulihkan.
+- **Langkah:**
+  1. Logrotate (idempoten):
+     ```bash
+     cd /www/wwwroot/video.dymas.cloud
+     install -m 644 -o root -g root scripts/ops/logrotate-video_dymas.conf /etc/logrotate.d/video_dymas
+     logrotate -d /etc/logrotate.d/video_dymas 2>&1 | tail -5     # dry run, tanpa error
+     ```
+  2. Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 — cek dulu belum ada (`python3 scripts/bt-api.py '/crontab?action=GetCrontab'`).
+     a. Lewat API: baca dulu parameter yang diharapkan di `/www/server/panel/class/crontab.py` fungsi `AddCrontab` (nama field berbeda antar versi aaPanel — **perlu diverifikasi, jangan ditebak**), lalu panggil `python3 scripts/bt-api.py '/crontab?action=AddCrontab' name='[GDrive Tube] Backup DB dummy' type=day hour=3 minute=0 sType=database sName=dummy save=7 backupTo=localhost …` sesuai field yang ditemukan. Ingat: 20 kegagalan signature beruntun = API diblokir 1 jam.
+     b. Bila API gagal → 🧑 minta user: aaPanel → **Cron** → Add Task → Type *Backup Database*, Name `[GDrive Tube] Backup DB dummy`, Period *Daily* 03:00, Database `dummy`, Backup to *Local disk*, Retain *7*.
+  3. Backup `.env` (ulang setiap kali `.env` berubah):
+     ```bash
+     mkdir -p /root/backup && chmod 700 /root/backup
+     install -m 600 -o root -g root .env /root/backup/video_dymas.env
+     ```
+  4. Gzip: `grep -n 'gzip' /www/server/nginx/conf/nginx.conf`. `gzip_types` harus memuat `application/json`, `text/css`, `application/javascript` (atau `text/javascript`), `image/svg+xml`. Bila kurang: tambahkan `gzip_types …` yang lengkap ke `scripts/nginx-custom.conf` (konteks server, dipakai vhost ini saja), commit, lalu pasang (`cp … /www/server/panel/vhost/rewrite/node_video_dymas.conf && /www/server/nginx/sbin/nginx -t && /etc/init.d/nginx reload`). Jangan edit nginx.conf global.
+     ```bash
+     curl -sI -H 'Accept-Encoding: gzip' https://video.dymas.cloud/api/categories | grep -i content-encoding
+     curl -sI -H 'Accept-Encoding: gzip' "https://video.dymas.cloud$(curl -s https://video.dymas.cloud/ | grep -o '/assets/[^"]*\.js' | head -1)" | grep -i content-encoding
+     ```
+  5. Smoke produksi (password admin dari `.env` bila belum diganti; kalau sudah, minta user mengisi `SMOKE_PASS` di terminal — jangan ditulis ke file):
+     ```bash
+     bash scripts/smoke.sh          # BASE default https://video.dymas.cloud
+     ```
+     Catatan: cek "video privat sebagai tamu" dilewati bila belum ada video privat; "stream" dilewati bila belum ada video publik siap.
+  6. Uji keamanan black-box di instance uji (butuh `budi/budi12345` + video siap milik budi dari `upload-test.mjs`):
+     ```bash
+     bash scripts/dev/test-instance.sh start
+     cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/security-test.mjs . && node security-test.mjs   # harus 48/48
+     bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop   # uji rate limit mengunci login 127.0.0.1 → restart instance sebelum dipakai lagi
+     ```
+  7. Header cache produksi: `curl -sI https://video.dymas.cloud/api/feed | grep -i cache-control` → `private, no-store`; `curl -sI https://video.dymas.cloud/api/site` → `etag` + `private, no-cache`.
+  8. Auto start: `python3 scripts/bt-api.py /project/nodejs/restart_project/json 'data={"project_name":"video_dymas"}'`, tunggu ±5 dtk, `curl -fsS https://video.dymas.cloud/api/health`. Cek opsi *auto start on boot* project `video_dymas` masih aktif (UI aaPanel → Website → Node Project; ingat bug `get_project_list` di CLAUDE.md).
+  9. (Opsional) Lighthouse mobile beranda & `/watch?v=<id>` dengan Chromium server: `npx -y lighthouse@12 https://video.dymas.cloud/ --chrome-flags='--headless --no-sandbox' --only-categories=performance --form-factor=mobile --quiet --output=json | python3 -c 'import sys,json;print(json.load(sys.stdin)["categories"]["performance"]["score"])'` — target ≥ 0,85. Catat angkanya di CLAUDE.md.
+- **Verifikasi:** `ls -l /etc/logrotate.d/video_dymas` ada; cron backup tampil di `GetCrontab` (03:00, save 7) dan — setelah 03:00 berikutnya — file backup ada di `/www/backup/database/`; `/root/backup/video_dymas.env` mode 600 dan `cmp` sama dengan `.env`; respons JSON & JS ber-`content-encoding: gzip`; smoke `0 gagal`; security-test 48/48; health OK setelah restart.
+- **Rollback:** `rm /etc/logrotate.d/video_dymas`; hapus cron di aaPanel; kembalikan `scripts/nginx-custom.conf` dari git lalu pasang ulang & reload nginx.
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 16** — `/etc/logrotate.d/video_dymas` (harian, simpan 14, copytruncate, compress).
-- **Step 16** — Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 (API `bt-api.py` atau UI).
-- **Step 16** — Cek gzip nginx global aaPanel mencakup `application/json`, `text/css`, `application/javascript`, `image/svg+xml`.
-- **Step 16** — Salin `.env` → `/root/backup/video_dymas.env` (600) bila berubah; jalankan `scripts/smoke.sh`; Lighthouse mobile beranda & tonton; `EXPLAIN` query feed/search/related dengan 10.000 baris uji di `dummy_test`; uji auto start (restart project via aaPanel).
 - **Step 17** — Matriks QA di produksi + uji perangkat nyata (🧑).
 
 ---

@@ -105,11 +105,13 @@ describe('playlist', () => {
 });
 
 describe('listableSql', () => {
-  it('memakai -1 untuk tamu agar tidak cocok dengan owner NULL', () => {
+  it('tamu: hanya publik (tanpa OR/owner, tidak cocok dengan owner NULL)', () => {
     const [sql, params] = listableSql(guest);
     expect(sql).toContain("v.status = 'ready'");
     expect(sql).toContain('v.deleted_at IS NULL');
-    expect(params).toEqual([-1]);
+    expect(sql).toContain("v.visibility = 'public'");
+    expect(sql).not.toContain('owner_user_id');
+    expect(params).toEqual([]);
     expect(listableSql(owner, 'x')[0]).toContain('x.owner_user_id = ?');
     expect(listableSql(owner)[1]).toEqual([10]);
   });

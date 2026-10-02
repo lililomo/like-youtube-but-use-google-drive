@@ -35,9 +35,10 @@ async function load(buf: Buffer): Promise<{ img: sharp.Sharp; meta: sharp.Metada
   return { img, meta };
 }
 
-/** Foto profil: persegi 256×256 (crop ke area paling menarik), WebP. */
+/** Foto profil: persegi 256×256 (crop ke area paling menarik), WebP. SVG ditolak (bisa diupload user mana pun). */
 export async function renderAvatar(buf: Buffer): Promise<Buffer> {
-  const { img } = await load(buf);
+  const { img, meta } = await load(buf);
+  if (meta.format === 'svg') throw badRequest('Foto profil harus berupa JPG, PNG, WebP, GIF, atau AVIF');
   return img
     .resize(256, 256, { fit: 'cover', position: sharp.strategy.attention })
     .flatten({ background: '#ffffff' })

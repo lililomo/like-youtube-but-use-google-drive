@@ -844,6 +844,8 @@ canEditVideo(v, viewer) = viewer.role === 'admin' || (v.owner_user_id != null &&
 
 // Fragmen SQL untuk SEMUA daftar publik (beranda, cari, rekomendasi, channel, playlist):
 listableSql = "v.deleted_at IS NULL AND v.status='ready' AND (v.visibility='public' OR v.owner_user_id = :uid)"
+// Tamu (uid null): fragmen tanpa klausa pemilik → "v.deleted_at IS NULL AND v.status='ready' AND v.visibility='public'"
+// (setara secara makna, tetapi indeks (visibility,status,published_at) bisa dipakai — feed tamu 10k baris 17 ms → 0,5 ms).
 // Admin pun memakai fragmen yang sama di halaman publik; admin melihat semuanya di /admin.
 
 canViewPlaylist(p, viewer) =
@@ -853,7 +855,7 @@ canViewPlaylist(p, viewer) =
 
 canEditPlaylist(p, viewer) = (owner sama) || (guest_hash sama) || viewer.role === 'admin';
 ```
-Video yang tidak boleh ditonton → `404 VIDEO_UNAVAILABLE` (jangan bocorkan judul). Tamu tidak bisa membuat playlist publik (server memaksa `visibility='private'` bila `owner_user_id` null).
+Video yang tidak boleh ditonton → `404 VIDEO_UNAVAILABLE` (jangan bocorkan judul). Saat video berubah publik → privat, key aset publik (thumbnail `-480/-1280.webp`, `-og.jpg`, folder storyboard) **dirotasi** (`processing/assets.ts`) sehingga URL `/media/...` yang pernah tersebar tidak berlaku lagi. Tamu tidak bisa membuat playlist publik (server memaksa `visibility='private'` bila `owner_user_id` null).
 
 ---
 
@@ -894,7 +896,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | POST `/api/auth/login` · `/api/auth/logout` | publik / login | |
 | POST `/api/auth/password` | login | `{current, next}` |
 | PATCH `/api/me` | login | `{displayName?, avatarColor?}` |
-| PUT `/api/me/avatar` · DELETE `/api/me/avatar` | login | foto profil: body mentah `image/*` ≤ 5 MB → WebP 256×256 (crop otomatis `attention`), file lama dihapus; balasan `{user}` dengan `avatarUrl` |
+| PUT `/api/me/avatar` · DELETE `/api/me/avatar` | login | foto profil: body mentah `image/*` raster (png/jpg/webp/gif/avif; **SVG ditolak**) ≤ 5 MB → WebP 256×256 (crop otomatis `attention`), file lama dihapus; balasan `{user}` dengan `avatarUrl` |
 | GET `/api/categories` | publik | kategori yang punya ≥1 video listable |
 | GET `/api/feed` | publik | `?category=&sort=latest|popular&cursor=` |
 | GET `/api/search` | publik | `?q=&cursor=` → `{videos, playlists(halaman 1 saja)}` |
@@ -1195,7 +1197,7 @@ async function enterFullscreen() {
 | `/assets/*` (hash Vite) | 1 tahun immutable (nginx) |
 | `/media/*` (nama berisi key acak) | 30 hari immutable (nginx) |
 | `index.html` | `no-cache` |
-| API list/detail | `Cache-Control: private, no-store` (data per-viewer) ; ETag untuk `/api/site` & `/api/categories` |
+| API list/detail | `Cache-Control: private, no-store` (data per-viewer; hook `onSend` di `app.ts` untuk semua `/api/*` yang belum memasang Cache-Control) ; `/api/site` & `/api/categories`: `private, no-cache` + ETag lemah → 304 |
 | `/stream/*` | `private, max-age=3600` |
 - Gzip teks oleh nginx aaPanel (pastikan `application/json`, `text/css`, `application/javascript`, `image/svg+xml` termasuk). Video tidak di-gzip.
 - Query DB memakai indeks §6; hindari `OFFSET` besar (kursor). Pool mysql2 `connectionLimit 15`.
@@ -1207,7 +1209,7 @@ async function enterFullscreen() {
 
 ## 20. Logging, Monitoring, Backup, Operasional
 
-- Log Fastify (pino JSON) ke stdout → `/www/server/nodejs/vhost/logs/video_dymas.log` (dilihat di aaPanel). Level `info`; request log tanpa query `s=`. Logrotate: `/etc/logrotate.d/video_dymas` (harian, simpan 14, `copytruncate`, compress).
+- Log Fastify (pino JSON) ke stdout → `/www/server/nodejs/vhost/logs/video_dymas.log` (dilihat di aaPanel). Level `info`; request log tanpa query `s=`. Logrotate: `/etc/logrotate.d/video_dymas` (harian, simpan 14, `copytruncate`, compress) — sumber `scripts/ops/logrotate-video_dymas.conf`.
 - `/api/health` untuk pemantauan; aaPanel "auto start on boot" aktif.
 - Backup: cron aaPanel "Backup Database" untuk `dummy` harian 03:00, simpan 7 (via UI atau API `crontab`). Thumbnail/storyboard bisa dibuat ulang (tidak wajib di-backup). `.env` disalin ke `/root/backup/video_dymas.env` (mode 600) karena `APP_KEY` wajib untuk membaca secret.
 - Git lokal (tanpa remote) di folder proyek untuk riwayat perubahan; `.gitignore`: `node_modules`, `dist`, `.env`, `storage/`, `*.log`.
@@ -1217,6 +1219,7 @@ async function enterFullscreen() {
 ## 21. Testing & Definition of Done
 
 **Unit (vitest)**: parsing URL folder, nama → judul, pencocokan subtitle, SRT→VTT, signature stream (valid/kedaluwarsa/salah), parsing Range, canWatch/canViewPlaylist (tabel kasus), format angka & waktu id, skor rekomendasi, enkripsi secret.
-**Smoke (`scripts/smoke.sh`)**: health, login admin, me, feed, detail video publik, stream Range `bytes=0-1023` → 206, akses video privat sebagai tamu → 404, CSRF tanpa header → 403.
+**Smoke (`scripts/smoke.sh`)**: health, login admin, me, feed, detail video publik, stream Range `bytes=0-1023` → 206, akses video privat sebagai tamu → 404, CSRF tanpa header → 403, tamu → `/api/admin/*` 401. Env: `BASE` (default produksi), `SMOKE_USER`, `SMOKE_PASS` (bila kosong dicoba `ADMIN_INITIAL_PASSWORD` dari `.env`). Keluar ≠ 0 bila ada yang gagal.
+**Keamanan black-box**: `scripts/dev/qa/security-test.mjs` (instance uji; 48 cek kebocoran video privat di semua daftar/OG/subtitle/stream, akses lintas user, CSRF/Origin, header, body > 1 MB, rate limit login).
 **Manual/E2E**: matriks di PROMPT Step 17 (desktop Chrome/Firefox/Safari, Android Chrome, iOS Safari; gelap/terang; tamu/user/admin).
 **Definition of Done (per step)**: build tanpa error TypeScript, test lulus, aplikasi berjalan di aaPanel, fitur diverifikasi di `https://video.dymas.cloud`, CLAUDE.md diperbarui (konfigurasi + progres + changelog), commit git lokal.

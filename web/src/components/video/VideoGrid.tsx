@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { VideoSummary } from '../../lib/types';
 import { VideoCard, VideoCardSkeleton } from './VideoCards';
 
@@ -7,12 +7,19 @@ export function columnsFor(width: number): number {
   return Math.max(1, Math.min(6, Math.floor((width + 16) / 336)));
 }
 
+function contentWidth(el: HTMLElement): number {
+  const cs = getComputedStyle(el);
+  return el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+}
+
 function useColumns() {
   const ref = useRef<HTMLDivElement>(null);
-  const [cols, setCols] = useState(4);
-  useEffect(() => {
+  // Tebakan awal dari lebar jendela; diukur ulang sebelum paint (useLayoutEffect) agar skeleton tidak melompat (CLS).
+  const [cols, setCols] = useState(() => columnsFor(window.innerWidth));
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    setCols(columnsFor(contentWidth(el)));
     const ro = new ResizeObserver(([entry]) => entry && setCols(columnsFor(entry.contentRect.width)));
     ro.observe(el);
     return () => ro.disconnect();

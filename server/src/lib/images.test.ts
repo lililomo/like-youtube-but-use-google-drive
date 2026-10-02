@@ -34,6 +34,11 @@ describe('images', () => {
     expect(out.png.includes(Buffer.from('alert'))).toBe(false);
   });
 
+  it('foto profil menolak SVG', async () => {
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>');
+    await expect(renderAvatar(svg)).rejects.toThrow(/JPG, PNG/);
+  });
+
   it('favicon 64 & 180', async () => {
     const { icon64, icon180 } = await renderFavicon(await png(120, 60));
     expect((await sharp(icon64).metadata()).width).toBe(64);

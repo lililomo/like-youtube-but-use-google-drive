@@ -69,7 +69,7 @@ export const t = {
     displayName: 'Nama tampilan',
     avatarColor: 'Warna avatar (bila tanpa foto)',
     photo: 'Foto profil',
-    photoHint: 'JPG, PNG, WebP, GIF, atau SVG, maks. 5 MB. Foto dipotong otomatis menjadi persegi.',
+    photoHint: 'JPG, PNG, WebP, atau GIF, maks. 5 MB. Foto dipotong otomatis menjadi persegi.',
     photoChange: 'Ubah foto',
     photoUpload: 'Upload foto',
     photoRemove: 'Hapus foto',

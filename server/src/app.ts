@@ -4,6 +4,7 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { APP_VERSION, config, isProd } from './config.js';
 import { pingDb } from './db.js';
+import { sha256Hex } from './lib/crypto.js';
 import { AppError, errorBody } from './lib/errors.js';
 import { auditRoutes } from './modules/audit/service.js';
 import { authRoutes } from './modules/auth/routes.js';
@@ -118,6 +119,25 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await registerAuth(app);
+
+  // SPEC §19: data API per-viewer → private, no-store (kecuali rute menetapkan sendiri);
+  // /api/site & /api/categories memakai ETag agar revalidasi murah (304).
+  app.addHook('onSend', async (req, reply, payload) => {
+    if (!req.url.startsWith('/api/')) return payload;
+    const path = req.url.split('?')[0];
+    if (req.method === 'GET' && reply.statusCode === 200 && typeof payload === 'string' && (path === '/api/site' || path === '/api/categories')) {
+      const etag = `W/"${sha256Hex(payload).slice(0, 20)}"`;
+      reply.header('ETag', etag);
+      reply.header('Cache-Control', 'private, no-cache');
+      if (req.headers['if-none-match'] === etag) {
+        reply.code(304);
+        return '';
+      }
+      return payload;
+    }
+    if (!reply.hasHeader('cache-control')) reply.header('Cache-Control', 'private, no-store');
+    return payload;
+  });
 
   app.get('/api/health', { config: { rateLimit: false } }, async (_req, reply) => {
     const db = await pingDb();

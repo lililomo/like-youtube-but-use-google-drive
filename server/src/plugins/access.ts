@@ -55,8 +55,10 @@ export function canEditPlaylist(p: PlaylistAccessFields, viewer: Viewer): boolea
  * @returns [sql, params]
  */
 export function listableSql(viewer: Viewer, alias = 'v'): [string, unknown[]] {
+  // Tamu: tanpa OR agar index idx_list (deleted_at, status, visibility, published_at) bisa dipakai untuk urutan (tanpa filesort).
+  if (viewer.userId == null) return [`${alias}.deleted_at IS NULL AND ${alias}.status = 'ready' AND ${alias}.visibility = 'public'`, []];
   return [
     `${alias}.deleted_at IS NULL AND ${alias}.status = 'ready' AND (${alias}.visibility = 'public' OR ${alias}.owner_user_id = ?)`,
-    [viewer.userId ?? -1],
+    [viewer.userId],
   ];
 }

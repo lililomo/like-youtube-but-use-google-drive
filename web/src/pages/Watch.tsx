@@ -427,6 +427,7 @@ export function WatchPage() {
             onToggleShuffle={pl.toggleShuffle}
           />
         )}
+        <h2 className="dv-visually-hidden">Video berikutnya</h2>
         {!notFound && chips.length > 1 && (
           <div className="dv-watch__chips">
             <ChipBar chips={chips} selected={chip} onSelect={(c) => setChip(c as Chip)} sticky={false} />

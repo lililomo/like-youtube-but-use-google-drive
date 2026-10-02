@@ -126,7 +126,7 @@ export function AccountPage() {
             <input
               ref={fileInput}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/avif"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
               hidden
               onChange={uploadPhoto}
             />
