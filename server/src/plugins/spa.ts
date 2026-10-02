@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import fastifyStatic from '@fastify/static';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -31,7 +31,17 @@ export async function registerSpa(
   opts: { distDir: string; metaResolver?: MetaResolver },
 ): Promise<void> {
   const indexPath = join(opts.distDir, 'index.html');
-  const indexHtml = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : FALLBACK_HTML;
+  // Dibaca ulang bila file berubah (build web tanpa restart aplikasi tetap aman).
+  let cached = { mtimeMs: -1, html: FALLBACK_HTML };
+  const loadIndex = (): string => {
+    try {
+      const { mtimeMs } = statSync(indexPath);
+      if (mtimeMs !== cached.mtimeMs) cached = { mtimeMs, html: readFileSync(indexPath, 'utf8') };
+    } catch {
+      cached = { mtimeMs: -1, html: FALLBACK_HTML };
+    }
+    return cached.html;
+  };
 
   if (existsSync(opts.distDir)) {
     await app.register(fastifyStatic, {
@@ -51,7 +61,7 @@ export async function registerSpa(
   }
 
   const sendIndex = async (req: FastifyRequest, reply: FastifyReply) => {
-    let html = indexHtml;
+    let html = loadIndex();
     if (opts.metaResolver) {
       try {
         const meta = await opts.metaResolver(req);

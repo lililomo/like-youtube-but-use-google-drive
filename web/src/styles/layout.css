@@ -1,0 +1,540 @@
+/* ===== Masthead ===== */
+.dv-masthead {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--masthead-h);
+  z-index: var(--z-masthead);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+.dv-masthead__start {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.dv-masthead__center {
+  flex: 0 1 732px;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  margin: 0 16px;
+}
+.dv-masthead__end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 225px;
+  flex: none;
+}
+.dv-masthead__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 8px 0 8px;
+  border-radius: 50%;
+}
+.dv-masthead__avatar-skeleton {
+  width: 32px;
+  height: 32px;
+  margin: 0 8px;
+  border-radius: 50%;
+  background: var(--skeleton);
+}
+
+/* Logo */
+.dv-logo {
+  display: inline-flex;
+  align-items: center;
+  height: var(--masthead-h);
+  padding: 0 14px 0 16px;
+  gap: 4px;
+  color: var(--text);
+  flex: none;
+}
+.dv-logo__mark {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+.dv-logo__word {
+  font-size: 1.8rem;
+  line-height: 2rem;
+  letter-spacing: -0.6px;
+  white-space: nowrap;
+  padding-left: 2px;
+}
+.dv-logo__word b {
+  font-weight: 700;
+}
+.dv-logo__word span {
+  font-weight: 400;
+  margin-left: 3px;
+}
+.dv-logo__img {
+  height: 24px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+/* Tombol Buat/Upload */
+.dv-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px 0 10px;
+  border-radius: 18px;
+  background: var(--chip-bg);
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+.dv-create-btn:hover {
+  background: var(--chip-bg-hover);
+}
+
+/* Tombol Login bergaris */
+.dv-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 15px 0 11px;
+  border: 1px solid var(--divider);
+  border-radius: 18px;
+  color: var(--cta);
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 3.6rem;
+  white-space: nowrap;
+  transition: background-color 0.1s;
+}
+.dv-login-btn:hover {
+  background: var(--cta-hover-bg);
+  border-color: transparent;
+}
+.dv-login-btn.is-compact {
+  padding: 0 11px 0 7px;
+  height: 34px;
+}
+
+/* ===== Kotak telusuri ===== */
+.dv-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  max-width: 640px;
+  height: 40px;
+  margin-left: 40px;
+}
+.dv-search__box {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  min-width: 0;
+  margin-left: 32px;
+  padding: 0 4px 0 16px;
+  background: var(--search-input-bg);
+  border: 1px solid var(--search-border);
+  border-right: none;
+  border-radius: 40px 0 0 40px;
+  box-shadow: var(--search-shadow);
+}
+.dv-search__icon-inner {
+  display: none;
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text);
+}
+.dv-search.is-focused .dv-search__box {
+  margin-left: 0;
+  padding-left: 48px;
+  border-color: var(--search-focus);
+  border-right: 1px solid var(--search-focus);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+:root[data-theme='light'] .dv-search.is-focused .dv-search__box {
+  box-shadow: inset 0 1px 2px #eeeeee;
+}
+.dv-search.is-focused .dv-search__icon-inner {
+  display: inline-flex;
+}
+.dv-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 1.6rem;
+  line-height: 2.4rem;
+  color: var(--text);
+}
+.dv-search__input::placeholder {
+  color: var(--text-secondary);
+}
+.dv-search__clear {
+  width: 40px;
+  height: 40px;
+  margin: -1px -4px -1px 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.dv-search__clear:hover {
+  background: var(--hover);
+}
+.dv-search__btn {
+  width: 64px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--search-border);
+  background: var(--search-btn-bg);
+  border-radius: 0 40px 40px 0;
+  color: var(--text);
+  flex: none;
+}
+.dv-search__btn:hover {
+  background: var(--search-btn-hover);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+.dv-search--mobile {
+  margin-left: 0;
+  max-width: none;
+  gap: 4px;
+}
+.dv-search--mobile .dv-search__box {
+  margin-left: 0;
+  height: 36px;
+  border-radius: 18px;
+  border: none;
+  border-right: none;
+  background: var(--chip-bg);
+  box-shadow: none;
+  padding-left: 16px;
+}
+.dv-search--mobile.is-focused .dv-search__box {
+  padding-left: 16px;
+  border: none;
+  box-shadow: none;
+}
+.dv-search--mobile .dv-search__icon-inner,
+.dv-search--mobile.is-focused .dv-search__icon-inner {
+  display: none;
+}
+.dv-search--mobile .dv-search__btn {
+  width: 40px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* Masthead mobile */
+.dv-masthead--mobile {
+  height: 48px;
+  padding: 0 4px 0 0;
+}
+.dv-masthead--mobile .dv-logo {
+  height: 48px;
+  padding: 0 8px 0 12px;
+}
+.dv-masthead--mobile .dv-logo__mark {
+  width: 22px;
+  height: 22px;
+}
+.dv-masthead--mobile .dv-logo__word {
+  font-size: 1.7rem;
+}
+.dv-masthead--mobile .dv-masthead__end {
+  min-width: 0;
+  gap: 0;
+}
+.dv-masthead--searching {
+  padding: 0 4px;
+}
+
+/* ===== Guide 240px ===== */
+.dv-guide {
+  position: fixed;
+  top: var(--masthead-h);
+  left: 0;
+  bottom: 0;
+  width: var(--guide-w);
+  background: var(--bg);
+  z-index: 1900;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+.dv-guide:hover {
+  overflow-y: auto;
+}
+.dv-guide::-webkit-scrollbar {
+  width: 8px;
+}
+.dv-guide::-webkit-scrollbar-thumb {
+  border: 0;
+  background: transparent;
+}
+.dv-guide:hover::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+}
+.dv-guide-content {
+  display: flex;
+  flex-direction: column;
+}
+.dv-guide-section {
+  padding: 12px;
+  border-bottom: 1px solid var(--divider);
+}
+.dv-guide-entry,
+.dv-guide-heading {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--text);
+}
+.dv-guide-entry {
+  gap: 24px;
+  font-size: 1.4rem;
+  line-height: 2rem;
+}
+.dv-guide-entry__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-guide-entry:hover,
+.dv-guide-heading:hover {
+  background: var(--guide-hover);
+}
+.dv-guide-entry.is-active {
+  background: var(--guide-active);
+  font-weight: 500;
+}
+.dv-guide-entry.is-active:hover {
+  background: var(--guide-active-hover);
+}
+.dv-guide-heading {
+  gap: 8px;
+  font-size: 1.6rem;
+  line-height: 2.2rem;
+  font-weight: 500;
+  width: fit-content;
+  padding-right: 8px;
+}
+.dv-guide-heading.is-active {
+  background: var(--guide-active);
+}
+.dv-guide-signin {
+  padding: 16px 24px 16px 32px;
+}
+.dv-guide-signin p {
+  font-size: 1.4rem;
+  line-height: 2rem;
+  margin-bottom: 12px;
+}
+.dv-guide-footer {
+  padding: 16px 24px;
+  font-size: 1.2rem;
+  line-height: 1.8rem;
+  color: var(--text-disabled);
+}
+
+/* ===== Mini-guide 72px ===== */
+.dv-mini-guide {
+  position: fixed;
+  top: var(--masthead-h);
+  left: 0;
+  bottom: 0;
+  width: var(--mini-guide-w);
+  padding: 4px;
+  background: var(--bg);
+  z-index: 1900;
+}
+.dv-mini-guide__entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 14px;
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.4rem;
+  text-align: center;
+  color: var(--text);
+}
+.dv-mini-guide__entry span {
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-mini-guide__entry:hover {
+  background: var(--guide-hover);
+}
+
+/* ===== Drawer overlay ===== */
+.dv-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-drawer) - 1);
+  background: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.dv-drawer-scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dv-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--guide-w);
+  z-index: var(--z-drawer);
+  background: var(--bg);
+  transform: translateX(-100%);
+  transition: transform 0.2s var(--ease);
+  display: flex;
+  flex-direction: column;
+  visibility: hidden;
+}
+.dv-drawer.is-open {
+  transform: none;
+  visibility: visible;
+}
+.dv-drawer__header {
+  display: flex;
+  align-items: center;
+  height: var(--masthead-h);
+  padding: 0 16px;
+  flex: none;
+}
+.dv-drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* ===== Navigasi bawah mobile ===== */
+.dv-mobile-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-masthead);
+  height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: var(--bg);
+  border-top: 1px solid var(--divider);
+}
+.dv-mobile-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 1rem;
+  line-height: 1.2rem;
+  color: var(--text);
+}
+.dv-mobile-nav__item.is-big .dv-icon {
+  width: 36px;
+  height: 36px;
+}
+
+/* ===== Area konten ===== */
+.dv-page {
+  padding-top: var(--masthead-h);
+  min-height: 100vh;
+}
+.dv-app--guide-full .dv-page {
+  margin-left: var(--guide-w);
+}
+.dv-app--guide-mini .dv-page {
+  margin-left: var(--mini-guide-w);
+}
+.dv-app--mobile .dv-page {
+  padding-top: 48px;
+  padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom));
+}
+.dv-app--mobile.dv-app--watch .dv-page {
+  padding-bottom: 0;
+}
+.dv-page-pad {
+  padding: 24px;
+}
+
+/* ===== Bar progres atas ===== */
+.dv-top-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 3000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.dv-top-progress.is-visible {
+  opacity: 1;
+}
+.dv-top-progress__bar {
+  height: 100%;
+  background: var(--brand);
+  transform-origin: left center;
+  transition: transform 0.2s linear;
+}
+
+/* ===== Chip bar beranda ===== */
+.dv-chipbar {
+  position: sticky;
+  top: var(--masthead-h);
+  z-index: 100;
+  height: var(--chipbar-h);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: var(--bg);
+}
+.dv-chipbar__scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+.dv-chipbar__scroll::-webkit-scrollbar {
+  display: none;
+}
+.dv-app--mobile .dv-chipbar {
+  top: 48px;
+  height: 48px;
+  padding: 0 12px;
+}

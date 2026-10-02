@@ -5,7 +5,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    // Aset lama dipertahankan agar tab yang masih memakai index.html lama tidak 404 saat memuat chunk;
+    // scripts/deploy.sh menghapus aset berumur > 7 hari.
+    emptyOutDir: false,
     target: 'es2020',
     assetsDir: 'assets',
     sourcemap: false,

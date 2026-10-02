@@ -21,7 +21,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 1 — Kerangka proyek, Node Project aaPanel, nginx custom, SSL — 2026-10-02
 - [x] Step 2 — Database, migrasi, settings, kriptografi — 2026-10-02
 - [x] Step 3 — Auth, sesi, CSRF, tamu, manajemen user — 2026-10-02
-- [ ] Step 4 — Fondasi frontend & design system YouTube
+- [x] Step 4 — Fondasi frontend & design system YouTube — 2026-10-02
 - [ ] Step 5 — Integrasi Google Drive (🧑 user membuat kredensial)
 - [ ] Step 6 — Sinkronisasi folder
 - [ ] Step 7 — Streaming
@@ -70,6 +70,9 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Settings | tabel `settings` (JSON); rahasia (`drive.oauth_client_secret`, `drive.oauth_refresh_token`, `drive.service_account_json`) AES-256-GCM `v1:` dengan kunci HKDF(APP_KEY,"dv-enc"); default di `server/src/modules/settings/service.ts` |
 | Auth | Cookie `dv_sid` (HttpOnly, Secure, Lax; 30 hari bila "Ingat saya", kalau tidak cookie sesi + 24 jam sliding), `dv_csrf` (dibaca JS, dikirim di header `X-CSRF-Token` untuk semua non-GET `/api/*`; Origin harus `https://video.dymas.cloud`), `dv_gid` (tamu, 400 hari). Login rate-limit in-memory 10 gagal/15 menit per IP **dan** per username (reset saat restart). Rate-limit global `/api/*` 600/menit/IP |
 | Header keamanan | Helmet: CSP (SPEC §12), nosniff, X-Frame SAMEORIGIN, Referrer-Policy, **HSTS dari aplikasi** (max-age 1 th) — HSTS di vhost aaPanel tidak terkirim karena `add_header` di `location /` menimpanya |
+| Frontend | React 19 SPA (`web/src`): router `router.tsx` (layout Root → App/Watch/Bare; `/admin/*` lazy chunk `pages/admin/AdminApp`), design token `styles/tokens.css` (tema terang/gelap via `html[data-theme]`, skrip anti-kedip `public/theme-init.js`), CSS global `styles/{base,ui,layout,pages,admin}.css` (prefix `dv-`), ikon SVG inline `components/icons/Icon.tsx` (Material Icons), teks UI `i18n/id.ts`. Bundle awal ±130 KB gzip |
+| Build web | `vite build` dengan `emptyOutDir:false` (aset lama dipertahankan, deploy menghapus aset > 7 hari); `index.html` dibaca ulang server bila berubah |
+| QA screenshot | `/root/dv-qa/shot.mjs` (playwright-core + Chromium cache `/root/.cache/ms-playwright/chromium_headless_shell-1234`) → `/root/dv-qa/shots/*.png`; `/root/dv-qa/yt.mjs` untuk pembanding youtube.com. Di luar folder proyek |
 | Static web | `web/dist` — `/assets/*` disajikan nginx (immutable 1 th); `index.html` & SPA fallback oleh Fastify (`no-cache`) |
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
@@ -122,3 +125,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 1: monorepo server (Fastify 5/TS) + web (Vite 7/React 19); `/api/health`; SPA fallback; `.env`; `scripts/deploy.sh`; Node Project aaPanel `video_dymas` (id 30, port 3210); nginx custom terpasang di rewrite include; SSL Let's Encrypt + Force HTTPS.
 - 2026-10-02 — Step 2: db.ts (pool mysql2), migrasi 001_init + runner, seeder admin, lib crypto/ids/password/errors, SettingsService (cache + enkripsi rahasia), `/api/health` cek DB; 13 unit test lulus.
 - 2026-10-02 — Step 3: plugin auth (sesi/CSRF/tamu), login/logout/me/password/PATCH me, API admin users (CRUD, reset password, proteksi admin terakhir & diri sendiri), audit log + `GET /api/admin/audit`, aturan akses `plugins/access.ts`, helmet+CSP+HSTS, rate-limit; 37 unit test lulus; diuji end-to-end via curl.
+- 2026-10-02 — Step 4: fondasi frontend — token tema YouTube, masthead + kotak Telusuri, guide/mini-guide/drawer/nav bawah mobile (breakpoint 1313/792/656), menu akun + submenu Tampilan, Login, Akun, 404, kerangka Studio admin (lazy), komponen UI (tombol, tooltip, popup, dialog, field, snackbar, skeleton, switch), `GET /api/site`; 30 unit test web; diverifikasi via screenshot vs youtube.com.

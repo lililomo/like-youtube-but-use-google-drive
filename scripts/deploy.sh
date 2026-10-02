@@ -19,6 +19,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   fi
   log "build"
   npm run build
+  find web/dist/assets -type f -mtime +7 -delete 2>/dev/null || true
   if [ -f server/dist/migrate.js ]; then
     log "migrate"
     npm run migrate
