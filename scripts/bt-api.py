@@ -25,6 +25,7 @@ import ssl
 import sys
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
 PANEL_DIR = "/www/server/panel"
@@ -62,8 +63,12 @@ def call(path, data=None, timeout=300):
     )
     body = urllib.parse.urlencode(payload).encode()
     req = urllib.request.Request(base + path, data=body, method="POST")
-    with opener.open(req, timeout=timeout) as resp:
-        raw = resp.read().decode("utf-8", "replace")
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as err:
+        raw = err.read().decode("utf-8", "replace")
+        return {"http_error": err.code, "body": raw[:2000]}
     jar.save(ignore_discard=True, ignore_expires=True)
     os.chmod(COOKIE_FILE, 0o600)
     try:

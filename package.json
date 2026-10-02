@@ -1,0 +1,28 @@
+{
+  "name": "dymas-video",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dymas Video — platform video bergaya YouTube dengan sumber Google Drive",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "npm run build -w server && npm run build -w web",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "migrate": "node server/dist/migrate.js",
+    "seed": "node server/dist/seed.js",
+    "test": "npm run test -w server && npm run test -w web",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "sharp@0.34.5": true
+  }
+}

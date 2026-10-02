@@ -18,7 +18,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 
 ### Progres
 - [x] Step 0 — Persiapan server (ffmpeg, bt-api.py, DB `dummy`, git) — 2026-10-02
-- [ ] Step 1 — Kerangka proyek, Node Project aaPanel, nginx custom, SSL
+- [x] Step 1 — Kerangka proyek, Node Project aaPanel, nginx custom, SSL — 2026-10-02
 - [ ] Step 2 — Database, migrasi, settings, kriptografi
 - [ ] Step 3 — Auth, sesi, CSRF, tamu, manajemen user
 - [ ] Step 4 — Fondasi frontend & design system YouTube
@@ -51,20 +51,24 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Port terpakai (sebagian) | 3001, 3306, 4000, 6379, 7080, 8188, 8190, 8288–8290, 11111, 18888, 19999 |
 | Contoh Node Project lain | `masalah` (port 4000) — jangan diganggu |
 
-## Konfigurasi Aplikasi (rencana — perbarui menjadi nilai aktual saat dieksekusi)
+## Konfigurasi Aplikasi (aktual)
 | Item | Nilai |
 |---|---|
 | Folder aplikasi | `/www/wwwroot/video.dymas.cloud` |
 | Stack | Node 24 + Fastify 5 + TypeScript (server) · React 19 + Vite 7 (web) · MariaDB · ffmpeg |
-| aaPanel Node Project | `video_dymas` · script `/www/wwwroot/video.dymas.cloud/server/dist/index.js` · port **3210** · run user `www` · auto start on |
+| aaPanel Node Project | `video_dymas` (site id **30**) · script `/www/wwwroot/video.dymas.cloud/server/dist/index.js` · port **3210** · run user `www` · Node v24.18.0 · auto start on boot · memory limit 2048 MB · dibuat via API `create_project` |
 | Bind | `127.0.0.1:3210` (hanya lewat nginx) |
 | Vhost aaPanel | `/www/server/panel/vhost/nginx/node_video_dymas.conf` (jangan diedit) |
 | Nginx custom | `/www/server/panel/vhost/rewrite/node_video_dymas.conf` ← `scripts/nginx-custom.conf` |
 | Log aplikasi | `/www/server/nodejs/vhost/logs/video_dymas.log` |
 | Skrip start / pid aaPanel | `/www/server/nodejs/vhost/scripts/video_dymas.sh` · `/www/server/nodejs/vhost/pids/video_dymas.pid` |
 | Log nginx | `/www/wwwlogs/` |
-| SSL | Let's Encrypt via aaPanel + Force HTTPS (belum) |
-| Storage lokal | `storage/public` (→ `/media/`), `storage/cache`, `storage/tmp` |
+| SSL | Let's Encrypt (issuer YR1) via aaPanel ACME (`apply_cert_api` id=30, HTTP-01) + `SetSSL` siteName=video_dymas + Force HTTPS aktif; sertifikat di `/www/server/panel/vhost/cert/video_dymas/`; berlaku s/d 2026-12-31, auto-renew oleh aaPanel |
+| Storage lokal | `storage/public/{thumbs,sb,branding}` (→ `/media/` via nginx), `storage/cache/subs`, `storage/tmp` |
+| Static web | `web/dist` — `/assets/*` disajikan nginx (immutable 1 th); `index.html` & SPA fallback oleh Fastify (`no-cache`) |
+| Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
+| `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
+| Paket | npm workspaces (`server`, `web`); versi dipatok: TypeScript 5.9, Vite 7, React 19, react-router 7, Fastify 5, vitest 3, zod 4, undici 7, google-auth-library 10, sharp 0.34. `allowScripts` (npm 11) menyetujui esbuild & sharp |
 | Google Drive | OAuth (default) · redirect URI `https://video.dymas.cloud/api/admin/drive/oauth/callback` · folder sistem `_dymasvideo_system/renditions` |
 
 ## Kredensial (non-rahasia/permintaan user)
@@ -79,16 +83,24 @@ python3 scripts/bt-api.py '/data?action=getData' table=databases limit=20 p=1 se
 ```
 Argumen `key=value` dikirim sebagai form field. Cookie jar: `/root/.bt-api-cookies.txt` (600). Host bisa diganti via env `BT_API_HOST`.
 
-## Perintah (diisi saat Step 1)
+## Perintah
 ```bash
 export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
-# build:    npm run build
-# migrate:  npm run migrate
-# deploy:   bash scripts/deploy.sh
-# restart:  python3 scripts/bt-api.py /project/nodejs/restart_project project_name=video_dymas
-# log:      tail -f /www/server/nodejs/vhost/logs/video_dymas.log
-# health:   curl -fsS https://video.dymas.cloud/api/health
+npm run build                       # tsc server + vite build web
+npm run migrate                     # migrasi DB (setelah build)
+bash scripts/deploy.sh              # npm ci (bila lock berubah) → build → migrate → chown → restart aaPanel → health
+SKIP_BUILD=1 bash scripts/deploy.sh # restart saja
+python3 scripts/bt-api.py /project/nodejs/restart_project/json 'data={"project_name":"video_dymas"}'
+tail -f /www/server/nodejs/vhost/logs/video_dymas.log
+curl -fsS https://video.dymas.cloud/api/health
 ```
+Nginx custom: edit `scripts/nginx-custom.conf` → `cp scripts/nginx-custom.conf /www/server/panel/vhost/rewrite/node_video_dymas.conf && /www/server/nginx/sbin/nginx -t && /etc/init.d/nginx reload`.
+
+### Catatan aaPanel penting
+- Route API project: `/project/nodejs/<fungsi>/json` dengan parameter `data=<JSON>`.
+- **Jangan klik "Install modules"/install_packages untuk project ini di UI aaPanel**: aaPanel memakai `yarn install` dan MENGHAPUS `package-lock.json`. Kalau terlanjur: `cp /root/backup/video_dymas.package-lock.json package-lock.json` (atau dari git), hapus `yarn.lock`, `npm ci`.
+- Skrip start aaPanel hanya mengarahkan **stdout** ke log (`2>&1 >> log`), jadi pesan fatal aplikasi ditulis ke stdout.
+- **Bug aaPanel 8.0.6** (`class/projectModel/nodejsModel.py` `get_project_stat`): `project_config` direset ke `{}` sebelum dibaca → `KeyError: 'port'` ketika project Node yang dijalankan aaPanel sedang listen. Akibatnya `get_project_list` (API maupun halaman *Node Project* di UI aaPanel) gagal (balasan 404 samaran). Belum ditambal — menunggu keputusan user (menambal file aaPanel butuh izin). Fungsi lain (restart/stop/start, SSL) tetap berfungsi.
 
 ## Keputusan
 Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama eksekusi dicatat di sini dengan tanggal & alasan.
@@ -96,3 +108,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 ## Changelog
 - 2026-10-02 — Analisis server; dibuat PRD.md, SPEC.md, PROMPT.md, CLAUDE.md. Belum ada kode.
 - 2026-10-02 — Step 0: ffmpeg 4.4.2 dipasang (apt); `scripts/bt-api.py` dibuat & teruji; DB `dummy` dibuat via aaPanel API; git lokal diinisialisasi (branch main, tanpa remote).
+- 2026-10-02 — Step 1: monorepo server (Fastify 5/TS) + web (Vite 7/React 19); `/api/health`; SPA fallback; `.env`; `scripts/deploy.sh`; Node Project aaPanel `video_dymas` (id 30, port 3210); nginx custom terpasang di rewrite include; SSL Let's Encrypt + Force HTTPS.
