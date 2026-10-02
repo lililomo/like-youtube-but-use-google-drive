@@ -5,8 +5,9 @@ import { killAllChildren } from '../../lib/ffmpeg.js';
 import { DeferJob, FatalJobError, HANDLERS, onJobFailed, type JobContext } from './handlers.js';
 import { jobEvents, type JobType, type Lane } from './queue.js';
 
-const CONCURRENCY: Record<Lane, number> = { light: 2, heavy: 1 };
-const running: Record<Lane, number> = { light: 0, heavy: 0 };
+/** download: impor YouTube satu per satu (jaringan), terpisah dari konversi ffmpeg. */
+const CONCURRENCY: Record<Lane, number> = { light: 2, heavy: 1, download: 1 };
+const running: Record<Lane, number> = { light: 0, heavy: 0, download: 0 };
 const controllers = new Map<number, AbortController>();
 let stopping = false;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -142,10 +143,12 @@ export async function startWorker(logger: FastifyBaseLogger): Promise<void> {
   timer = setInterval(() => {
     void fill('light');
     void fill('heavy');
+    void fill('download');
   }, 3000);
   timer.unref();
   void fill('light');
   void fill('heavy');
+  void fill('download');
 }
 
 export async function stopWorker(): Promise<void> {

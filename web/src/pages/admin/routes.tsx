@@ -5,6 +5,7 @@ import { AdminLayout } from './AdminLayout';
 import { AdminPlaceholder } from './AdminPlaceholder';
 import { DriveSettingsPage } from './DriveSettings';
 import { JobsPage } from './Jobs';
+import { ImportsPage } from './Imports';
 import { ProcessingSettingsPage } from './ProcessingSettings';
 import { SiteSettingsPage } from './SiteSettings';
 import { DashboardPage } from './Dashboard';
@@ -28,6 +29,7 @@ export const adminRoutes: RouteObject[] = [
       { path: 'videos', element: <AdminVideosPage /> },
       { path: 'playlists', element: <AdminPlaylistsPage /> },
       { path: 'jobs', element: <JobsPage /> },
+      { path: 'imports', element: <ImportsPage /> },
       { path: 'settings/drive', element: <DriveSettingsPage /> },
       { path: 'settings/processing', element: <ProcessingSettingsPage /> },
       { path: 'settings/site', element: <SiteSettingsPage /> },

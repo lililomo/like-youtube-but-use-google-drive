@@ -108,6 +108,7 @@ export const t = {
     videos: 'Video',
     playlists: 'Playlist',
     jobs: 'Antrean',
+    imports: 'Impor YouTube',
     settings: 'Pengaturan',
     drive: 'Google Drive',
     site: 'Situs',

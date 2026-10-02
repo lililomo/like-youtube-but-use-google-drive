@@ -23,6 +23,7 @@ import { subtitleManageRoutes } from './modules/subtitles/manage.js';
 import { streamRoutes } from './modules/stream/routes.js';
 import { subtitleRoutes } from './modules/subtitles/routes.js';
 import { processingRoutes } from './modules/processing/routes.js';
+import { importRoutes } from './modules/imports/routes.js';
 import { publicVideoRoutes } from './modules/videos/public.js';
 import { ogMeta } from './modules/videos/og.js';
 import fastifyStatic from '@fastify/static';
@@ -165,6 +166,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(playlistRoutes);
   await app.register(uploadRoutes);
   await app.register(adminRoutes);
+  await app.register(importRoutes);
   await app.register(subtitleManageRoutes);
   await app.register(streamRoutes);
   await app.register(subtitleRoutes);

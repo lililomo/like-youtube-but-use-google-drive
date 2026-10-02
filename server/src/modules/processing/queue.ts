@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events';
 import { exec, queryOne, type Db, pool } from '../../db.js';
 
-export type JobType = 'probe' | 'thumbnail' | 'media' | 'faststart' | 'delete_assets';
-export type Lane = 'light' | 'heavy';
+export type JobType = 'probe' | 'thumbnail' | 'media' | 'faststart' | 'delete_assets' | 'yt_import';
+export type Lane = 'light' | 'heavy' | 'download';
 
 const DEFAULTS: Record<JobType, { lane: Lane; priority: number; maxAttempts: number }> = {
   probe: { lane: 'light', priority: 1, maxAttempts: 4 },
@@ -10,6 +10,7 @@ const DEFAULTS: Record<JobType, { lane: Lane; priority: number; maxAttempts: num
   media: { lane: 'heavy', priority: 5, maxAttempts: 3 },
   faststart: { lane: 'heavy', priority: 4, maxAttempts: 3 },
   delete_assets: { lane: 'light', priority: 8, maxAttempts: 5 },
+  yt_import: { lane: 'download', priority: 5, maxAttempts: 3 },
 };
 
 /** Membangunkan worker saat ada job baru. */

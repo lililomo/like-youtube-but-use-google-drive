@@ -23,6 +23,7 @@ const ITEMS: Item[] = [
   { to: '/admin/videos', label: t.admin.videos, icon: 'your-videos' },
   { to: '/admin/playlists', label: t.admin.playlists, icon: 'playlist-play' },
   { to: '/admin/jobs', label: t.admin.jobs, icon: 'list' },
+  { to: '/admin/imports', label: t.admin.imports, icon: 'download' },
 ];
 
 const SETTINGS: Item[] = [

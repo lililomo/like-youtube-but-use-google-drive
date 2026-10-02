@@ -11,7 +11,7 @@ import { cancelRunningJob, workerStats } from './worker.js';
 
 const listQuery = z.object({
   status: z.enum(['queued', 'running', 'done', 'failed', 'cancelled']).optional(),
-  type: z.enum(['probe', 'thumbnail', 'media', 'faststart', 'delete_assets']).optional(),
+  type: z.enum(['probe', 'thumbnail', 'media', 'faststart', 'delete_assets', 'yt_import']).optional(),
   cursor: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });

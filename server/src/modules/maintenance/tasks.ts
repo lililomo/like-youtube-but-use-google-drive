@@ -1,8 +1,10 @@
+import { existsSync } from 'node:fs';
 import { readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FastifyBaseLogger } from 'fastify';
 import { config } from '../../config.js';
 import { exec } from '../../db.js';
+import { updateYtdlp, ytdlpPath } from '../imports/ytdlp.js';
 
 /** Pembersihan berkala (SPEC §8.5): sesi kedaluwarsa, oauth state, upload kedaluwarsa, file tmp lama. */
 async function hourly(log: FastifyBaseLogger): Promise<void> {
@@ -29,8 +31,20 @@ async function cleanTmp(log: FastifyBaseLogger): Promise<void> {
   }
 }
 
+/** yt-dlp harus selalu terbaru (YouTube sering berubah; versi lama cepat gagal mengunduh). */
+async function updateYtdlpDaily(log: FastifyBaseLogger): Promise<void> {
+  if (!existsSync(ytdlpPath())) return;
+  try {
+    log.info({ result: await updateYtdlp() }, 'yt-dlp -U');
+  } catch (err) {
+    log.warn({ err: (err as Error).message }, 'pembaruan yt-dlp gagal');
+  }
+}
+
 export function startMaintenance(log: FastifyBaseLogger): void {
   setTimeout(() => void hourly(log), 30_000).unref();
   setInterval(() => void hourly(log), 3600_000).unref();
   setInterval(() => void cleanTmp(log), 6 * 3600_000).unref();
+  setTimeout(() => void updateYtdlpDaily(log), 10 * 60_000).unref();
+  setInterval(() => void updateYtdlpDaily(log), 24 * 3600_000).unref();
 }

@@ -38,6 +38,8 @@ const schema = z.object({
   WEB_DIST_DIR: z.string().default(resolve(PROJECT_ROOT, 'web/dist')),
   FFMPEG_PATH: z.string().default('/usr/bin/ffmpeg'),
   FFPROBE_PATH: z.string().default('/usr/bin/ffprobe'),
+  /** yt-dlp (impor YouTube). Default di storage/bin agar bisa diperbarui sendiri oleh user www (`yt-dlp -U`). */
+  YTDLP_PATH: z.string().optional().default(''),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   ADMIN_USERNAME: z.string().default('admin'),

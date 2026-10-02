@@ -12,6 +12,7 @@ import { DriveError, mediaRequest, trashFile, uploadFileFromDisk } from '../driv
 import { ensureSystemFolders } from '../drive/service.js';
 import { settings } from '../settings/service.js';
 import { invalidateStreamCache } from '../stream/routes.js';
+import { ytImport } from '../imports/service.js';
 import { faststartEligible, faststartMuxer, remoteNeedsFaststart, rewriteFaststart } from './faststart.js';
 import { enqueueJob, type JobType } from './queue.js';
 import { encodeParams, isBrowserPlayable, outputSize, planRenditions, storyboardInterval, summarizeProbe } from './media-rules.js';
@@ -476,6 +477,8 @@ export const HANDLERS: Record<JobType, (ctx: JobContext) => Promise<void>> = {
   media,
   faststart,
   delete_assets: deleteAssets,
+  // Pembungkus: modul impor juga mengimpor file ini (siklus) → referensi diselesaikan saat dipanggil.
+  yt_import: (ctx) => ytImport(ctx),
 };
 
 /** Dipanggil saat job gagal permanen. */

@@ -10,7 +10,7 @@ import { toast } from '../../stores/toast';
 
 interface Job {
   id: number;
-  type: 'probe' | 'thumbnail' | 'media' | 'faststart' | 'delete_assets';
+  type: 'probe' | 'thumbnail' | 'media' | 'faststart' | 'delete_assets' | 'yt_import';
   status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
   attempts: number;
   maxAttempts: number;
@@ -35,6 +35,7 @@ const TYPE_LABEL: Record<Job['type'], string> = {
   media: 'Konversi & storyboard',
   faststart: 'Rapikan file asli',
   delete_assets: 'Hapus aset',
+  yt_import: 'Impor YouTube',
 };
 const STATUS_LABEL: Record<Job['status'], string> = {
   queued: 'Menunggu',

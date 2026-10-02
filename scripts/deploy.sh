@@ -32,6 +32,7 @@ fi
 
 log "izin file"
 mkdir -p storage/public/{thumbs,sb,branding,avatars} storage/cache/subs storage/tmp
+[ -x storage/bin/yt-dlp ] || bash scripts/ops/install-yt-dlp.sh || echo "[deploy] PERINGATAN: yt-dlp gagal dipasang (impor YouTube tidak jalan)" >&2
 chown -R www:www "$ROOT"
 chmod 600 .env
 

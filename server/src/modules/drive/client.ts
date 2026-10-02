@@ -1,4 +1,5 @@
 import { createReadStream, statSync } from 'node:fs';
+import { Transform } from 'node:stream';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { JWT, OAuth2Client } from 'google-auth-library';
 import { Agent, request, type Dispatcher } from 'undici';
@@ -325,11 +326,32 @@ export async function createResumableSession(meta: {
 }
 
 /** Kirim seluruh file lokal ke sesi resumable dalam satu PUT (stream). */
-async function putFileToSession(session: string, path: string, size: number, mimeType: string, signal?: AbortSignal): Promise<DriveFile> {
+async function putFileToSession(
+  session: string,
+  path: string,
+  size: number,
+  mimeType: string,
+  signal?: AbortSignal,
+  onProgress?: (sentBytes: number) => void,
+): Promise<DriveFile> {
+  // Progres lewat Transform (bukan listener 'data' pada stream file: itu membuat stream mengalir sebelum undici membaca
+  // → potongan hilang → "Request body length does not match content-length header").
+  let sent = 0;
+  const body = onProgress
+    ? createReadStream(path).pipe(
+        new Transform({
+          transform(chunk: Buffer, _enc, cb) {
+            sent += chunk.length;
+            onProgress(sent);
+            cb(null, chunk);
+          },
+        }),
+      )
+    : createReadStream(path);
   const res = await request(session, {
     method: 'PUT',
     headers: { 'content-length': String(size), 'content-type': mimeType },
-    body: createReadStream(path),
+    body,
     dispatcher: driveAgent,
     signal,
     headersTimeout: 0,
@@ -344,10 +366,11 @@ async function putFileToSession(session: string, path: string, size: number, mim
 export async function uploadFileFromDisk(
   path: string,
   meta: { name: string; mimeType: string; parents: string[]; appProperties?: Record<string, string> },
+  opts: { signal?: AbortSignal; onProgress?: (sentBytes: number) => void } = {},
 ): Promise<DriveFile> {
   const size = statSync(path).size;
   const session = await createResumableSession({ ...meta, size });
-  return putFileToSession(session, path, size, meta.mimeType);
+  return putFileToSession(session, path, size, meta.mimeType, opts.signal, opts.onProgress);
 }
 
 /**

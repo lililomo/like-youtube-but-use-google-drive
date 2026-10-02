@@ -38,6 +38,7 @@ DRIVE_API_BASE=http://127.0.0.1:3298/drive/v3
 DRIVE_UPLOAD_BASE=http://127.0.0.1:3298/upload/drive/v3
 DRIVE_FAKE_TOKEN=fake-token
 SERVE_STATIC=1
+YTDLP_PATH=$ROOT/storage/bin/yt-dlp
 ENVEOF
   chmod 600 "$ENV"
 }
