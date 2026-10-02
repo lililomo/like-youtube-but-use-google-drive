@@ -73,13 +73,39 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** fitur tidak mengubah konfigurasi server; kolom `avatar_key` boleh dibiarkan.
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-002 — Step 11 (pemutar mobile & lanjutan): verifikasi produksi + uji HP nyata
+- **Asal:** Step 11 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy
+- **Butuh user:** 🧑 ya — uji di HP Android (Chrome) & iPhone (Safari) nyata, laporkan hasil per butir
+- **Kenapa:** Chromium di Claude cloud tidak punya codec H.264 dan tidak bisa merotasi layar/wake lock sungguhan; uji otomatis memakai video VP9 & emulasi perangkat.
+- **Langkah (Claude di server):**
+  ```bash
+  bash scripts/dev/test-instance.sh start
+  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/player-test3.mjs . && npm ls playwright-core >/dev/null || npm i playwright-core
+  CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node player-test3.mjs   # harus 25/25
+  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+  ```
+  Lalu kirim checklist berikut ke user dan **tunggu hasilnya**; perbaiki temuan:
+  1. Tap video → kontrol muncul dengan tombol tengah (⏮ ▶/❚❚ ⏭); tap lagi → hilang.
+  2. Double-tap kanan/kiri → ±10 dtk dengan animasi; tap cepat berulang → 20, 30 dtk.
+  3. Tahan jari di video → "2x" selama ditahan, lepas → normal.
+  4. Geser progress bar dengan jari → pratinjau gambar + waktu, video lompat saat dilepas.
+  5. Tombol layar penuh → video landscape memenuhi layar & HP berputar ke landscape (iPhone: pemutar bawaan iOS).
+  6. Saat video bermain, putar HP ke landscape → otomatis layar penuh (Android; boleh gagal di beberapa browser); putar kembali → keluar layar penuh.
+  7. Layar tidak mati sendiri selama video diputar (Wake Lock).
+  8. Kunci layar / tarik panel notifikasi → kontrol media (judul, putar/jeda, maju/mundur) tampil dan berfungsi.
+  9. Video selesai → "Berikutnya dalam 5" + BATAL / PUTAR SEKARANG; matikan "Putar otomatis" → grid rekomendasi.
+  10. Jaringan lambat (mis. matikan Wi-Fi, pakai data 3G) → kualitas Otomatis turun tanpa layar hitam.
+- **Verifikasi:** player-test3 25/25 di server + jawaban user untuk 10 butir (✅/❌ + catatan HP & browser).
+- **Rollback:** tidak ada perubahan konfigurasi server.
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 11** — Verifikasi pemutar di produksi setelah deploy, lalu berikan user checklist uji HP Android (Chrome) & iPhone (Safari) dan tunggu hasilnya (🧑).
 - **Step 12–15** — Verifikasi fitur step di https://video.dymas.cloud setelah deploy (halaman tonton, playlist, upload ≥ 1 GB ke Drive asli, panel admin).
 - **Step 16** — `/etc/logrotate.d/video_dymas` (harian, simpan 14, copytruncate, compress).
 - **Step 16** — Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 (API `bt-api.py` atau UI).

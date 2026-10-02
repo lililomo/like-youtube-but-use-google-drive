@@ -16,6 +16,7 @@ export interface SiteInfo {
   defaultTheme: ThemePref;
   guestPlaylists: boolean;
   uploadEnabled: boolean;
+  player: { autoplayDefault: boolean; seekSeconds: number; endscreenCountdown: number };
 }
 
 export const DEFAULT_SITE_NAME = 'GDrive Tube';
@@ -32,6 +33,7 @@ const FALLBACK: SiteInfo = {
   defaultTheme: 'system',
   guestPlaylists: true,
   uploadEnabled: true,
+  player: { autoplayDefault: true, seekSeconds: 10, endscreenCountdown: 5 },
 };
 
 /** Data situs yang disisipkan server ke index.html (<script type="application/json" id="dv-site">). */

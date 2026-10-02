@@ -1,7 +1,8 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { apiGet } from '../lib/api';
 import type { VideoDetail } from '../lib/types';
-import { Player, type PlayerLoadOptions, type PlayerSource } from './Player';
+import { useSite } from '../hooks/useSite';
+import { Player, type PlayerLoadOptions, type PlayerSource, type UpNextItem } from './Player';
 import './player.css';
 
 export interface PlayerViewProps {
@@ -12,6 +13,13 @@ export interface PlayerViewProps {
   hasNext?: boolean;
   theater?: boolean;
   keyboard?: boolean;
+  /** Video berikutnya untuk hitung mundur autoplay. */
+  upNext?: UpNextItem | null;
+  /** Rekomendasi untuk grid layar akhir. */
+  endscreen?: UpNextItem[];
+  /** Menonton dari playlist: lanjut tanpa hitung mundur. */
+  playlistMode?: boolean;
+  onSelect?: (id: string) => void;
   onEnded?: () => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -25,6 +33,7 @@ export interface PlayerViewProps {
 export function toLoadOptions(d: VideoDetail, extra: Partial<PlayerLoadOptions> = {}): PlayerLoadOptions {
   return {
     videoId: d.id,
+    shareUrl: `${location.origin}/watch?v=${d.id}`,
     title: d.title,
     channelName: d.channel.name,
     poster: d.thumb?.hd ?? null,
@@ -60,6 +69,7 @@ export function PlayerView(props: PlayerViewProps) {
     p.on('progress', (pr) => handlers.current.onProgress?.(pr));
     p.on('viewqualified', () => handlers.current.onViewQualified?.());
     p.on('autoplaychange', (on) => handlers.current.onAutoplayChange?.(on));
+    p.on('select', (id) => handlers.current.onSelect?.(id));
     return () => {
       p.destroy();
       player.current = null;
@@ -67,7 +77,17 @@ export function PlayerView(props: PlayerViewProps) {
     };
   }, []);
 
-  const { detail, autoplay = true, startAt, hasPrev, hasNext, theater, keyboard = true } = props;
+  const site = useSite();
+  const { detail, autoplay = true, startAt, hasPrev, hasNext, theater, keyboard = true, upNext = null, endscreen, playlistMode = false } = props;
+  useEffect(
+    () =>
+      player.current?.configure({
+        seekSeconds: site.player.seekSeconds,
+        countdown: site.player.endscreenCountdown,
+        autoplayDefault: site.player.autoplayDefault,
+      }),
+    [site.player.seekSeconds, site.player.endscreenCountdown, site.player.autoplayDefault],
+  );
   useEffect(() => {
     player.current?.load(toLoadOptions(detail, { autoplay, startAt, hasPrev, hasNext }));
     // Hanya saat video berganti; refetch detail tidak memuat ulang pemutar.
@@ -76,6 +96,14 @@ export function PlayerView(props: PlayerViewProps) {
   useEffect(() => player.current?.setNavigation(Boolean(hasPrev), Boolean(hasNext)), [hasPrev, hasNext]);
   useEffect(() => player.current?.setTheater(Boolean(theater)), [theater]);
   useEffect(() => player.current?.setKeyboardEnabled(keyboard), [keyboard]);
+  useEffect(() => player.current?.setUpNext(upNext), [upNext]);
+  useEffect(() => player.current?.setEndscreenItems(endscreen ?? []), [endscreen]);
+  useEffect(() => player.current?.setPlaylistMode(playlistMode), [playlistMode]);
 
   return <div ref={host} className="dv-player-host" />;
+}
+
+/** Ringkasan video → item layar akhir pemutar. */
+export function toUpNext(v: { id: string; title: string; durationSec: number | null; thumb: { sd: string } | null; channel: { name: string } }): UpNextItem {
+  return { id: v.id, title: v.title, channelName: v.channel.name, thumb: v.thumb?.sd ?? null, durationSec: v.durationSec };
 }

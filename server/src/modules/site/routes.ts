@@ -15,6 +15,11 @@ export function siteInfo() {
     defaultTheme: settings.get('site.default_theme'),
     guestPlaylists: settings.get('site.guest_playlists'),
     uploadEnabled: settings.get('upload.enabled'),
+    player: {
+      autoplayDefault: settings.get('player.autoplay_default'),
+      seekSeconds: settings.get('player.seek_seconds'),
+      endscreenCountdown: settings.get('player.endscreen_countdown'),
+    },
   };
 }
 

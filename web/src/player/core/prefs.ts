@@ -34,3 +34,12 @@ export function savePrefs(p: PlayerPrefs): void {
     /* abaikan */
   }
 }
+
+/** Apakah user pernah menyimpan preferensi (untuk menerapkan default autoplay dari admin). */
+export function hasStoredPrefs(): boolean {
+  try {
+    return window.localStorage.getItem(KEY) != null;
+  } catch {
+    return false;
+  }
+}

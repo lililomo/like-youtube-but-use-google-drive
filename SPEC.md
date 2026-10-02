@@ -889,7 +889,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | Method & Path | Akses | Keterangan |
 |---|---|---|
 | GET `/api/health` | publik | `{ok, db, drive, version, uptime}` |
-| GET `/api/site` | publik | nama, logo, channel utama, tema default, flag fitur |
+| GET `/api/site` | publik | nama, logo (+gelap, mode), favicon, channel utama, tema default, flag fitur, `player {autoplayDefault, seekSeconds, endscreenCountdown}` (juga disisipkan ke `index.html`) |
 | GET `/api/auth/me` | publik | `{user|null, guest:boolean}` + set `dv_csrf` |
 | POST `/api/auth/login` · `/api/auth/logout` | publik / login | |
 | POST `/api/auth/password` | login | `{current, next}` |
@@ -1115,7 +1115,7 @@ Mini-guide/guide item: Beranda, Jelajahi Playlist, Anda (Histori, Playlist, Vide
 ### 16.6 Sumber & kualitas
 - Daftar kualitas dari `sources` (urut tinggi menurun). Label: `${h}p` + `" HD"` bila ≥ 1080, `1440p HD`, `2160p 4K`. Item "Otomatis" menampilkan pilihan aktual: "Otomatis (720p)".
 - **Pilihan awal (Otomatis)**: tinggi target = `min(tinggiPemutarCSS × devicePixelRatio, 1080)`; pilih kualitas terkecil ≥ target (atau tertinggi bila tidak ada). Batasi oleh `navigator.connection`: `saveData` atau `2g` → 360p, `3g` → ≤ 480p.
-- **ABR sederhana (Otomatis)**: hitung *buffer ahead*. Turun satu tingkat bila terjadi ≥ 2 event `waiting` dalam 20 dtk atau buffer < 3 dtk selama > 5 dtk saat bermain. Naik satu tingkat (maks ke target) bila buffer > 30 dtk stabil selama 60 dtk, maks sekali per 2 menit. Estimasi throughput = (pertambahan detik buffer × bitrate sumber) / waktu.
+- **ABR sederhana (Otomatis)** (`player/core/abr.ts`, diuji unit): hitung *buffer ahead*; event `waiting` dalam 3 dtk setelah seek/ganti sumber diabaikan, dekat akhir video (< 10 dtk) buffer kecil tidak dihitung. Turun satu tingkat bila terjadi ≥ 2 event `waiting` dalam 20 dtk atau buffer < 3 dtk selama > 5 dtk saat bermain. Naik satu tingkat (maks ke target) bila buffer > 30 dtk stabil selama 60 dtk, maks sekali per 2 menit. Estimasi throughput = (pertambahan detik buffer × bitrate sumber) / waktu.
 - **Ganti kualitas** (manual/otomatis): gambar frame saat ini ke `canvas.dvp-freeze` (same-origin), simpan `currentTime`, `paused`, `playbackRate`; ganti `src`; setelah `loadedmetadata` → seek, lanjut main, sembunyikan canvas saat `seeked`/`playing`. Tidak boleh layar hitam.
 - Preferensi manual disimpan (`prefs.quality`), dipakai untuk video berikutnya bila tersedia (jika tidak, kualitas terdekat di bawahnya).
 

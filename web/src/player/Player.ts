@@ -4,9 +4,10 @@
  * (dan status layar penuh) tetap bertahan.
  */
 import { formatDuration } from '../lib/format';
+import { AbrController } from './core/abr';
 import { Emitter } from './core/emitter';
-import { loadPrefs, savePrefs, type PlayerPrefs } from './core/prefs';
-import { pickAuto, pickManual, shortLabel, stepDown, type Conn } from './core/quality';
+import { hasStoredPrefs, loadPrefs, savePrefs, type PlayerPrefs } from './core/prefs';
+import { pickAuto, pickManual, shortLabel, stepDown, stepUp, type Conn } from './core/quality';
 import { activeCues, parseVtt, type Cue } from './core/vtt';
 import { svg, type PlayerIcon } from './ui/icons';
 
@@ -39,8 +40,28 @@ export interface PlayerStoryboard {
   sheets: string[];
 }
 
+/** Video untuk layar akhir (hitung mundur "Berikutnya" & grid rekomendasi). */
+export interface UpNextItem {
+  id: string;
+  title: string;
+  channelName: string;
+  thumb: string | null;
+  durationSec: number | null;
+}
+
+export interface PlayerConfig {
+  /** Detik untuk J/L & double-tap (setting player.seek_seconds). */
+  seekSeconds?: number;
+  /** Detik hitung mundur autoplay (setting player.endscreen_countdown; 0 = langsung). */
+  countdown?: number;
+  /** Autoplay bawaan dari admin — hanya dipakai bila user belum pernah mengatur. */
+  autoplayDefault?: boolean;
+}
+
 export interface PlayerLoadOptions {
   videoId: string;
+  /** URL kanonik untuk menu klik kanan "Salin URL video". */
+  shareUrl?: string;
   title: string;
   channelName?: string;
   poster?: string | null;
@@ -71,15 +92,17 @@ export interface PlayerEvents extends Record<string, unknown> {
   qualitychange: { q: string; auto: boolean };
   error: { message: string };
   fullscreenchange: boolean;
+  /** Video dipilih dari grid layar akhir. */
+  select: string;
 }
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-const SEEK_SECONDS = 10;
 const TAP_DELAY_TOUCH = 280;
 const TAP_DELAY_MOUSE = 200;
 const LONG_PRESS_MS = 500;
 
 type MenuView = 'main' | 'speed' | 'quality' | 'captions';
+
 
 interface DocFs extends Document {
   webkitFullscreenElement?: Element | null;
@@ -93,6 +116,8 @@ interface VideoFs extends HTMLVideoElement {
   webkitDisplayingFullscreen?: boolean;
 }
 
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
 const isTypingTarget = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
@@ -103,6 +128,7 @@ const TEMPLATE = `
 <canvas class="dvp-freeze" hidden></canvas>
 <div class="dvp-captions" aria-hidden="true"></div>
 <div class="dvp-gesture"></div>
+<div class="dvp-dim" aria-hidden="true"></div>
 <div class="dvp-bezel" aria-hidden="true"><div class="dvp-bezel__circle"><div class="dvp-bezel__icon"></div></div><div class="dvp-bezel__text"></div></div>
 <div class="dvp-ripple dvp-ripple--left" aria-hidden="true"><div class="dvp-ripple__inner"><div class="dvp-ripple__arrows">${svg('rewind')}</div><div class="dvp-ripple__text"></div></div></div>
 <div class="dvp-ripple dvp-ripple--right" aria-hidden="true"><div class="dvp-ripple__inner"><div class="dvp-ripple__arrows">${svg('forward')}</div><div class="dvp-ripple__text"></div></div></div>
@@ -146,7 +172,9 @@ const TEMPLATE = `
     </div>
   </div>
 </div>
+<div class="dvp-endscreen" hidden></div>
 <div class="dvp-menu" role="menu" hidden></div>
+<div class="dvp-ctxmenu" role="menu" hidden></div>
 <div class="dvp-tooltip" aria-hidden="true"></div>
 `;
 
@@ -185,6 +213,22 @@ export class Player {
   private refreshTimer?: ReturnType<typeof setTimeout>;
   private raf = 0;
   private userInitiated = false;
+  private seekSeconds = 10;
+  private countdownSec = 5;
+
+  // layar akhir & navigasi
+  private upNext: UpNextItem | null = null;
+  private endItems: UpNextItem[] = [];
+  private playlistMode = false;
+  private countdownTimer?: ReturnType<typeof setInterval>;
+
+  // ABR, Media Session, Wake Lock, rotasi
+  private readonly abr = new AbrController();
+  private abrCap = Infinity;
+  private abrTimer?: ReturnType<typeof setInterval>;
+  private lastPositionState = 0;
+  private wakeLock: WakeLockSentinel | null = null;
+  private fsByRotation = false;
 
   // gesture
   private tapTimer?: ReturnType<typeof setTimeout>;
@@ -218,6 +262,11 @@ export class Player {
     this.bindControls();
     this.bindGestures();
     this.bindDocument();
+    this.bindContextMenu();
+    this.bindEndscreen();
+    this.bindMediaSession();
+    this.bindOrientation();
+    this.abrTimer = setInterval(() => this.abrTick(), 1000);
   }
 
   // ---------------------------------------------------------------------------
@@ -241,6 +290,11 @@ export class Player {
     this.$['dvp-captions']!.innerHTML = '';
     this.hideError();
     this.closeMenu();
+    this.closeContextMenu();
+    this.hideEndscreen();
+    this.video.loop = false;
+    this.fsByRotation = this.fsByRotation && this.isFullscreen();
+    this.abr.reset(Date.now());
     this.sources = [...opts.sources].sort((a, b) => b.height - a.height);
     this.root.dataset.hasPrev = String(Boolean(opts.hasPrev));
     this.root.dataset.hasNext = String(Boolean(opts.hasNext));
@@ -259,6 +313,7 @@ export class Player {
     this.setSource(src, opts.startAt && opts.startAt > 0 ? opts.startAt : null, opts.autoplay ?? true, 1);
     this.restoreCaptions();
     this.updateQualityBadge();
+    this.updateMediaSession();
   }
 
   play(): void {
@@ -284,6 +339,8 @@ export class Player {
   seek(t: number): void {
     const d = this.duration();
     if (!d) return;
+    this.abr.reset(Date.now());
+    if (this.root.dataset.state === 'ended') this.hideEndscreen();
     this.video.currentTime = Math.max(0, Math.min(t, d - 0.05));
     this.renderProgress();
   }
@@ -307,6 +364,31 @@ export class Player {
   setNavigation(hasPrev: boolean, hasNext: boolean): void {
     this.root.dataset.hasPrev = String(hasPrev);
     this.root.dataset.hasNext = String(hasNext);
+    this.updateMediaSessionHandlers();
+  }
+
+  configure(cfg: PlayerConfig): void {
+    if (cfg.seekSeconds && cfg.seekSeconds > 0) this.seekSeconds = cfg.seekSeconds;
+    if (cfg.countdown != null && cfg.countdown >= 0) this.countdownSec = cfg.countdown;
+    if (cfg.autoplayDefault != null && !hasStoredPrefs() && this.prefs.autoplay !== cfg.autoplayDefault) {
+      this.prefs.autoplay = cfg.autoplayDefault;
+      this.updateAutoplayButton();
+    }
+  }
+
+  /** Video berikutnya (rekomendasi pertama / item playlist berikutnya) untuk hitung mundur autoplay. */
+  setUpNext(item: UpNextItem | null): void {
+    this.upNext = item;
+  }
+
+  /** Rekomendasi untuk grid layar akhir (autoplay nonaktif). */
+  setEndscreenItems(items: UpNextItem[]): void {
+    this.endItems = items.slice(0, 8);
+  }
+
+  /** Di playlist: video berikutnya langsung diputar tanpa hitung mundur (SPEC §16.9). */
+  setPlaylistMode(on: boolean): void {
+    this.playlistMode = on;
   }
 
   get autoplay(): boolean {
@@ -346,6 +428,10 @@ export class Player {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     [this.stallTimer, this.spinnerTimer, this.hideTimer, this.refreshTimer, this.tapTimer, this.rippleTimer, this.longPressTimer].forEach((t) => t && clearTimeout(t));
+    clearInterval(this.abrTimer);
+    clearInterval(this.countdownTimer);
+    void this.releaseWakeLock();
+    this.clearMediaSession();
     this.cleanup.forEach((fn) => fn());
     this.events.clear();
     this.video.pause();
@@ -365,7 +451,55 @@ export class Player {
   private chooseSource(): PlayerSource | null {
     if (this.prefs.quality !== 'auto') return pickManual(this.sources, this.prefs.quality, this.failed);
     const h = this.root.clientHeight || 360;
-    return pickAuto(this.sources, h, window.devicePixelRatio || 1, this.conn(), this.failed);
+    const pick = pickAuto(this.sources, h, window.devicePixelRatio || 1, this.conn(), this.failed);
+    if (pick && pick.height > this.abrCap) {
+      return pickManual(this.sources, String(this.abrCap), this.failed) ?? pick;
+    }
+    return pick;
+  }
+
+  /** Tinggi target mode Otomatis tanpa batas ABR. */
+  private autoTargetHeight(): number {
+    const h = this.root.clientHeight || 360;
+    return pickAuto(this.sources, h, window.devicePixelRatio || 1, this.conn(), this.failed)?.height ?? 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // ABR (SPEC §16.6) — hanya mode Otomatis
+  // ---------------------------------------------------------------------------
+
+  private bufferAhead(): number {
+    const v = this.video;
+    for (let i = 0; i < v.buffered.length; i++) {
+      if (v.buffered.start(i) <= v.currentTime + 0.25 && v.buffered.end(i) >= v.currentTime) return v.buffered.end(i) - v.currentTime;
+    }
+    return 0;
+  }
+
+  private abrTick(): void {
+    if (this.prefs.quality !== 'auto' || !this.current || this.destroyed) return;
+    const v = this.video;
+    const playing = !v.paused && !v.seeking && !v.ended && this.root.dataset.state === 'playing';
+    const d = this.duration();
+    const nearEnd = d > 0 && d - v.currentTime < 10;
+    this.applyAbr(this.abr.onTick(Date.now(), this.bufferAhead(), playing, nearEnd));
+  }
+
+  private applyAbr(decision: 'up' | 'down' | null): void {
+    if (!decision || !this.current || this.prefs.quality !== 'auto') return;
+    const now = Date.now();
+    const target =
+      decision === 'down'
+        ? stepDown(this.sources, this.current, this.failed)
+        : stepUp(this.sources, this.current, this.autoTargetHeight(), this.failed);
+    if (!target) {
+      this.abr.switched(now, decision);
+      return;
+    }
+    this.abrCap = decision === 'down' ? target.height : this.abrCap === Infinity ? Infinity : target.height;
+    this.abr.switched(now, decision);
+    this.switchSource(target);
+    if (this.menuView === 'quality' || this.menuView === 'main') this.renderMenu();
   }
 
   private setSource(src: PlayerSource, at: number | null, play: boolean, rate: number): void {
@@ -392,6 +526,8 @@ export class Player {
   setQuality(q: string): void {
     this.prefs.quality = q;
     savePrefs(this.prefs);
+    this.abrCap = Infinity;
+    this.abr.reset(Date.now());
     const src = this.chooseSource();
     if (src) this.switchSource(src);
     this.updateQualityBadge();
@@ -466,6 +602,7 @@ export class Player {
       }
     });
     on('play', () => {
+      this.hideEndscreen();
       this.root.dataset.state = 'playing';
       this.setPlayIcon(false);
       this.events.emit('play', undefined);
@@ -477,6 +614,8 @@ export class Player {
       this.hideSpinner();
       this.unfreeze();
       clearTimeout(this.stallTimer);
+      void this.requestWakeLock();
+      this.setMediaPlaybackState('playing');
     });
     on('pause', () => {
       if (v.ended) return;
@@ -484,10 +623,13 @@ export class Player {
       this.setPlayIcon(false);
       this.showControls(true);
       this.emitProgress();
+      void this.releaseWakeLock();
+      this.setMediaPlaybackState('paused');
       this.events.emit('pause', undefined);
     });
     on('waiting', () => {
       this.showSpinner();
+      if (!v.seeking && this.root.dataset.state === 'playing') this.applyAbr(this.abr.onWaiting(Date.now()));
       clearTimeout(this.stallTimer);
       const at = v.currentTime;
       this.stallTimer = setTimeout(() => {
@@ -495,7 +637,10 @@ export class Player {
       }, 12_000);
     });
     on('canplay', () => this.hideSpinner());
-    on('seeking', () => this.showSpinner());
+    on('seeking', () => {
+      this.showSpinner();
+      this.abr.reset(Date.now());
+    });
     on('seeked', () => {
       this.hideSpinner();
       if (v.paused) this.unfreeze();
@@ -513,8 +658,14 @@ export class Player {
       this.setPlayIcon(true);
       this.showControls(true);
       this.emitProgress();
+      void this.releaseWakeLock();
+      this.setMediaPlaybackState('paused');
       this.events.emit('ended', undefined);
+      this.onEndedFlow();
     });
+    // iPhone: layar penuh bawaan iOS pada elemen video.
+    v.addEventListener('webkitbeginfullscreen', () => this.events.emit('fullscreenchange', true));
+    v.addEventListener('webkitendfullscreen', () => this.events.emit('fullscreenchange', false));
     on('error', () => void this.recover('error'));
   }
 
@@ -542,6 +693,7 @@ export class Player {
       this.events.emit('viewqualified', undefined);
     }
     if (Date.now() - this.lastProgressEmit > 15_000) this.emitProgress();
+    if (Date.now() - this.lastPositionState > 1000) this.updatePositionState();
     this.renderTime();
     this.renderCaptions();
     if (v.paused) this.renderProgress();
@@ -649,6 +801,8 @@ export class Player {
       this.prefs.autoplay = !this.prefs.autoplay;
       savePrefs(this.prefs);
       this.updateAutoplayButton();
+      const tip = this.$['dvp-tooltip']!;
+      if (tip.classList.contains('is-visible')) tip.textContent = this.$['dvp-autoplay']!.dataset.tip ?? '';
       this.osd(this.prefs.autoplay ? 'Putar otomatis aktif' : 'Putar otomatis nonaktif');
       this.events.emit('autoplaychange', this.prefs.autoplay);
     });
@@ -1202,9 +1356,9 @@ export class Player {
     const now = Date.now();
     const sign = side === 'left' ? -1 : 1;
     if (!this.seekStreak || this.seekStreak.side !== side || now > this.seekStreak.until) this.seekStreak = { side, amount: 0, until: 0 };
-    this.seekStreak.amount += SEEK_SECONDS;
+    this.seekStreak.amount += this.seekSeconds;
     this.seekStreak.until = now + 700;
-    this.seekBy(sign * SEEK_SECONDS);
+    this.seekBy(sign * this.seekSeconds);
     this.ripple(side, this.seekStreak.amount);
   }
 
@@ -1237,6 +1391,7 @@ export class Player {
       b.innerHTML = svg(fs ? 'fullscreenExit' : 'fullscreen');
       b.dataset.tip = fs ? 'Keluar dari layar penuh (f)' : 'Layar penuh (f)';
       if (!fs) {
+        this.fsByRotation = false;
         try {
           screen.orientation?.unlock?.();
         } catch {
@@ -1249,6 +1404,7 @@ export class Player {
     document.addEventListener('fullscreenchange', onFs);
     document.addEventListener('webkitfullscreenchange', onFs);
     const onDocDown = (e: PointerEvent) => {
+      if (!this.$['dvp-ctxmenu']!.hidden && !this.$['dvp-ctxmenu']!.contains(e.target as Node)) this.closeContextMenu();
       if (!this.menuView) return;
       const t = e.target as Node;
       if (this.$['dvp-menu']!.contains(t) || this.$['dvp-settings']!.contains(t)) return;
@@ -1286,14 +1442,14 @@ export class Player {
       case 'j':
       case 'J':
         return handled(() => {
-          this.seekBy(-SEEK_SECONDS);
-          this.bezel('rewind', `${SEEK_SECONDS} detik`);
+          this.seekBy(-this.seekSeconds);
+          this.bezel('rewind', `${this.seekSeconds} detik`);
         });
       case 'l':
       case 'L':
         return handled(() => {
-          this.seekBy(SEEK_SECONDS);
-          this.bezel('forward', `${SEEK_SECONDS} detik`);
+          this.seekBy(this.seekSeconds);
+          this.bezel('forward', `${this.seekSeconds} detik`);
         });
       case 'ArrowLeft':
         return handled(() => {
@@ -1348,6 +1504,7 @@ export class Player {
         if (!this.video.paused) return;
         return handled(() => this.seekBy(k === '.' ? 1 / 30 : -1 / 30));
       case 'Escape':
+        if (!this.$['dvp-ctxmenu']!.hidden) return handled(() => this.closeContextMenu());
         if (this.menuView) return handled(() => this.closeMenu());
         return;
       default:
@@ -1386,6 +1543,340 @@ export class Player {
   private hideSpinner(): void {
     clearTimeout(this.spinnerTimer);
     this.root.classList.remove('dvp--buffering');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Layar akhir: hitung mundur autoplay / grid rekomendasi (SPEC §16.9)
+  // ---------------------------------------------------------------------------
+
+  private onEndedFlow(): void {
+    if (this.video.loop) return;
+    const hasNext = this.root.dataset.hasNext === 'true';
+    if (this.playlistMode && hasNext) {
+      this.events.emit('next', undefined);
+      return;
+    }
+    if (this.prefs.autoplay && this.upNext && hasNext) {
+      if (this.countdownSec <= 0) this.events.emit('next', undefined);
+      else this.showCountdown(this.upNext);
+      return;
+    }
+    this.showEndGrid();
+  }
+
+  private showCountdown(item: UpNextItem): void {
+    const box = this.$['dvp-endscreen']!;
+    const total = this.countdownSec;
+    let left = total;
+    box.className = 'dvp-endscreen is-countdown';
+    box.innerHTML = `
+      <div class="dvp-upnext">
+        <div class="dvp-upnext__label">Berikutnya dalam <span class="dvp-upnext__sec">${left}</span></div>
+        <div class="dvp-upnext__body">
+          <button type="button" class="dvp-upnext__thumb" data-act="playnow" aria-label="Putar sekarang">
+            ${item.thumb ? `<img src="${escHtml(item.thumb)}" alt="" />` : ''}
+            <svg class="dvp-upnext__ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" style="animation-duration:${total}s"/></svg>
+            <span class="dvp-upnext__play">${svg('play')}</span>
+            ${item.durationSec ? `<span class="dvp-upnext__dur">${formatDuration(item.durationSec)}</span>` : ''}
+          </button>
+          <div class="dvp-upnext__meta">
+            <div class="dvp-upnext__title">${escHtml(item.title)}</div>
+            <div class="dvp-upnext__channel">${escHtml(item.channelName)}</div>
+          </div>
+        </div>
+        <div class="dvp-upnext__actions">
+          <button type="button" class="dvp-upnext__btn" data-act="cancel">Batal</button>
+          <button type="button" class="dvp-upnext__btn is-primary" data-act="playnow">Putar sekarang</button>
+        </div>
+      </div>`;
+    box.hidden = false;
+    this.root.dataset.endscreen = 'countdown';
+    clearInterval(this.countdownTimer);
+    this.countdownTimer = setInterval(() => {
+      left -= 1;
+      const sec = box.querySelector('.dvp-upnext__sec');
+      if (sec) sec.textContent = String(Math.max(0, left));
+      if (left <= 0) {
+        clearInterval(this.countdownTimer);
+        this.events.emit('next', undefined);
+      }
+    }, 1000);
+  }
+
+  private showEndGrid(): void {
+    const items = this.endItems.length ? this.endItems : this.upNext ? [this.upNext] : [];
+    const box = this.$['dvp-endscreen']!;
+    clearInterval(this.countdownTimer);
+    if (!items.length) {
+      this.hideEndscreen();
+      return;
+    }
+    box.className = 'dvp-endscreen is-grid';
+    box.innerHTML = `
+      <div class="dvp-endgrid">
+        ${items
+          .map(
+            (it) => `<button type="button" class="dvp-endgrid__item" data-id="${escHtml(it.id)}">
+              <span class="dvp-endgrid__thumb">${it.thumb ? `<img src="${escHtml(it.thumb)}" alt="" loading="lazy" />` : ''}${
+                it.durationSec ? `<span class="dvp-endgrid__dur">${formatDuration(it.durationSec)}</span>` : ''
+              }</span>
+              <span class="dvp-endgrid__title">${escHtml(it.title)}</span>
+              <span class="dvp-endgrid__channel">${escHtml(it.channelName)}</span>
+            </button>`,
+          )
+          .join('')}
+      </div>`;
+    box.hidden = false;
+    this.root.dataset.endscreen = 'grid';
+  }
+
+  private hideEndscreen(): void {
+    clearInterval(this.countdownTimer);
+    const box = this.$['dvp-endscreen']!;
+    if (box.hidden) return;
+    box.hidden = true;
+    box.innerHTML = '';
+    delete this.root.dataset.endscreen;
+  }
+
+  private bindEndscreen(): void {
+    const box = this.$['dvp-endscreen']!;
+    box.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const t = e.target as HTMLElement;
+      const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+      const id = t.closest<HTMLElement>('[data-id]')?.dataset.id;
+      if (act === 'playnow') {
+        clearInterval(this.countdownTimer);
+        this.events.emit('next', undefined);
+      } else if (act === 'cancel') {
+        this.showEndGrid();
+      } else if (id) {
+        this.hideEndscreen();
+        this.events.emit('select', id);
+      }
+    });
+    box.addEventListener('pointerdown', (e) => e.stopPropagation());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Menu klik kanan (SPEC §16.4)
+  // ---------------------------------------------------------------------------
+
+  private videoUrl(withTime: boolean): string {
+    const base = this.opts?.shareUrl ?? `${location.origin}/watch?v=${this.opts?.videoId ?? ''}`;
+    if (!withTime) return base;
+    return `${base}${base.includes('?') ? '&' : '?'}t=${Math.floor(this.video.currentTime)}`;
+  }
+
+  private async copy(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } finally {
+        ta.remove();
+      }
+    }
+    this.osd('Disalin ke papan klip', 'link');
+  }
+
+  private openContextMenu(x: number, y: number): void {
+    const menu = this.$['dvp-ctxmenu']!;
+    const item = (act: string, icon: PlayerIcon, label: string, checked?: boolean) =>
+      `<button type="button" class="dvp-ctxmenu__item" role="${checked === undefined ? 'menuitem' : 'menuitemcheckbox'}" ${
+        checked === undefined ? '' : `aria-checked="${checked}"`
+      } data-act="${act}">${svg(icon)}<span>${label}</span>${checked ? svg('check', 'dvp-ctxmenu__check') : ''}</button>`;
+    menu.innerHTML =
+      item('loop', 'loop', 'Ulangi', this.video.loop) +
+      item('copy', 'link', 'Salin URL video') +
+      item('copytime', 'link', 'Salin URL video pada waktu saat ini');
+    menu.hidden = false;
+    const r = this.root.getBoundingClientRect();
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+    menu.style.left = `${Math.max(4, Math.min(x - r.left, r.width - mw - 4))}px`;
+    menu.style.top = `${Math.max(4, Math.min(y - r.top, r.height - mh - 4))}px`;
+    this.showControls(true);
+  }
+
+  private closeContextMenu(): void {
+    const menu = this.$['dvp-ctxmenu'];
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    this.showControls();
+  }
+
+  private bindContextMenu(): void {
+    const menu = this.$['dvp-ctxmenu']!;
+    this.root.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (this.root.dataset.touch === 'true') return;
+      this.closeMenu();
+      this.openContextMenu(e.clientX, e.clientY);
+    });
+    menu.addEventListener('pointerdown', (e) => e.stopPropagation());
+    menu.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+      if (act === 'loop') {
+        this.video.loop = !this.video.loop;
+        this.osd(this.video.loop ? 'Ulangi aktif' : 'Ulangi nonaktif', 'loop');
+      } else if (act === 'copy') void this.copy(this.videoUrl(false));
+      else if (act === 'copytime') void this.copy(this.videoUrl(true));
+      this.closeContextMenu();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Media Session & Wake Lock (SPEC §16.9)
+  // ---------------------------------------------------------------------------
+
+  private mediaAction(action: MediaSessionAction, handler: MediaSessionActionHandler | null): void {
+    try {
+      navigator.mediaSession?.setActionHandler(action, handler);
+    } catch {
+      /* aksi tidak didukung browser ini */
+    }
+  }
+
+  private bindMediaSession(): void {
+    if (!('mediaSession' in navigator)) return;
+    this.mediaAction('play', () => this.play());
+    this.mediaAction('pause', () => this.pause());
+    this.mediaAction('seekbackward', (d) => this.seekBy(-(d.seekOffset ?? this.seekSeconds)));
+    this.mediaAction('seekforward', (d) => this.seekBy(d.seekOffset ?? this.seekSeconds));
+    this.mediaAction('seekto', (d) => {
+      if (d.seekTime == null) return;
+      if (d.fastSeek && typeof this.video.fastSeek === 'function') this.video.fastSeek(d.seekTime);
+      else this.seek(d.seekTime);
+    });
+    this.updateMediaSessionHandlers();
+  }
+
+  private updateMediaSessionHandlers(): void {
+    if (!('mediaSession' in navigator)) return;
+    const hasPrev = this.root.dataset.hasPrev === 'true';
+    const hasNext = this.root.dataset.hasNext === 'true';
+    this.mediaAction('previoustrack', hasPrev ? () => this.goPrev() : null);
+    this.mediaAction('nexttrack', hasNext ? () => this.events.emit('next', undefined) : null);
+  }
+
+  private updateMediaSession(): void {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined' || !this.opts) return;
+    const artwork: MediaImage[] = [];
+    if (this.opts.artwork) artwork.push({ src: this.opts.artwork, sizes: '480x270', type: 'image/webp' });
+    if (this.opts.poster) artwork.push({ src: this.opts.poster, sizes: '1280x720', type: 'image/webp' });
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: this.opts.title, artist: this.opts.channelName ?? '', artwork });
+    } catch {
+      /* abaikan */
+    }
+    this.updateMediaSessionHandlers();
+  }
+
+  private updatePositionState(): void {
+    this.lastPositionState = Date.now();
+    const ms = navigator.mediaSession;
+    const d = this.video.duration;
+    if (!ms?.setPositionState || !Number.isFinite(d) || d <= 0) return;
+    try {
+      ms.setPositionState({ duration: d, playbackRate: this.video.playbackRate || 1, position: Math.min(d, Math.max(0, this.video.currentTime)) });
+    } catch {
+      /* abaikan */
+    }
+  }
+
+  private setMediaPlaybackState(state: MediaSessionPlaybackState): void {
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state;
+    this.updatePositionState();
+  }
+
+  private clearMediaSession(): void {
+    if (!('mediaSession' in navigator)) return;
+    for (const a of ['play', 'pause', 'seekbackward', 'seekforward', 'seekto', 'previoustrack', 'nexttrack'] as MediaSessionAction[]) this.mediaAction(a, null);
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = 'none';
+  }
+
+  private async requestWakeLock(): Promise<void> {
+    if (!('wakeLock' in navigator) || this.wakeLock || document.visibilityState !== 'visible') return;
+    try {
+      const sentinel = await navigator.wakeLock.request('screen');
+      if (this.video.paused || this.destroyed) {
+        await sentinel.release();
+        return;
+      }
+      this.wakeLock = sentinel;
+      sentinel.addEventListener('release', () => {
+        if (this.wakeLock === sentinel) this.wakeLock = null;
+      });
+    } catch {
+      /* ditolak (mis. hemat baterai) */
+    }
+  }
+
+  private async releaseWakeLock(): Promise<void> {
+    const w = this.wakeLock;
+    this.wakeLock = null;
+    try {
+      await w?.release();
+    } catch {
+      /* sudah dilepas */
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rotasi HP → layar penuh otomatis (SPEC §16.8, best effort)
+  // ---------------------------------------------------------------------------
+
+  private bindOrientation(): void {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && !this.video.paused) void this.requestWakeLock();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    this.cleanup.push(() => document.removeEventListener('visibilitychange', onVisibility));
+    if (this.root.dataset.touch !== 'true') return;
+    const o = screen.orientation as (ScreenOrientation & EventTarget) | undefined;
+    const handler = () => {
+      const landscape = o?.type ? o.type.startsWith('landscape') : window.innerWidth > window.innerHeight;
+      const v = this.video;
+      if (landscape) {
+        const videoLandscape = (v.videoWidth || 16) >= (v.videoHeight || 9);
+        const r = this.root.getBoundingClientRect();
+        const visible = r.bottom > 0 && r.top < window.innerHeight;
+        if (this.isFullscreen() || !videoLandscape || v.paused || !visible) return;
+        const el = this.root as ElFs;
+        try {
+          const req = el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : el.webkitRequestFullscreen?.();
+          Promise.resolve(req)
+            .then(() => {
+              this.fsByRotation = this.isFullscreen();
+            })
+            .catch(() => {});
+        } catch {
+          /* browser menolak tanpa interaksi user */
+        }
+      } else if (this.isFullscreen() && this.fsByRotation) {
+        this.fsByRotation = false;
+        const d = document as DocFs;
+        void Promise.resolve(d.exitFullscreen?.() ?? d.webkitExitFullscreen?.()).catch(() => {});
+      }
+    };
+    if (o?.addEventListener) {
+      o.addEventListener('change', handler);
+      this.cleanup.push(() => o.removeEventListener('change', handler));
+    } else {
+      window.addEventListener('orientationchange', handler);
+      this.cleanup.push(() => window.removeEventListener('orientationchange', handler));
+    }
   }
 
   private lockOrientation(): void {

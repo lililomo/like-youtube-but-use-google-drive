@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/icons/Icon';
 import { Button } from '../components/ui/Button';
@@ -14,7 +14,7 @@ import { storage } from '../lib/storage';
 import type { Page, VideoDetail, VideoSummary } from '../lib/types';
 import { fetchVideo, videoKey, watchUrl } from '../lib/videoQueries';
 import type { Player } from '../player/Player';
-import { PlayerView } from '../player/PlayerView';
+import { PlayerView, toUpNext } from '../player/PlayerView';
 
 const isVideoId = (s: string) => /^[A-Za-z0-9_-]{11}$/.test(s);
 
@@ -70,6 +70,8 @@ export function WatchPage() {
   const next = relatedItems[0];
   const nextRef = useRef(next);
   nextRef.current = next;
+  const upNext = useMemo(() => (next ? toUpNext(next) : null), [next]);
+  const endscreen = useMemo(() => relatedItems.slice(0, 8).map(toUpNext), [relatedItems.slice(0, 8).map((v) => v.id).join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useDocumentTitle(video?.title ?? null);
   useEffect(() => {
@@ -86,9 +88,7 @@ export function WatchPage() {
     storage.set('dv.theater', on);
   }, []);
 
-  const onEnded = useCallback(() => {
-    if (playerRef.current?.autoplay) goNext();
-  }, [goNext]);
+  const onSelect = useCallback((vid: string) => navigate(watchUrl(vid)), [navigate]);
 
   const onViewQualified = useCallback(() => {
     void apiPost(`/videos/${id}/view`).catch(() => {});
@@ -112,7 +112,9 @@ export function WatchPage() {
               theater={theater}
               onTheater={onTheater}
               onNext={goNext}
-              onEnded={onEnded}
+              onSelect={onSelect}
+              upNext={upNext}
+              endscreen={endscreen}
               onViewQualified={onViewQualified}
               playerRef={playerRef}
             />
