@@ -52,7 +52,13 @@ try {
   if (big) {
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Network.enable');
-    await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 20, downloadThroughput: -1, uploadThroughput: 4 * 1024 * 1024 });
+    // Offline dipasang lewat sesi CDP yang sama dengan throttle: di Playwright 1.63 + chromium-1234,
+    // emulateNetworkConditions dari sesi ini menimpa ctx.setOffline(true) (browser tetap online).
+    const setNet = async (offline) => {
+      await ctx.setOffline(offline);
+      await cdp.send('Network.emulateNetworkConditions', { offline, latency: 20, downloadThroughput: -1, uploadThroughput: 4 * 1024 * 1024 });
+    };
+    await setNet(false);
     await page.click('button:has-text("Upload video")');
     await page.setInputFiles('.dv-upload-dialog input[type=file][multiple]', big);
     await page.click('.dv-upload-details__opts button:has-text("Upload")');
@@ -61,12 +67,12 @@ try {
       const m = /(\d+)%/.exec(t);
       return m && Number(m[1]) >= 30;
     }, null, { timeout: 60000 });
-    await ctx.setOffline(true);
+    await setNet(true);
     await page.waitForSelector('.dv-upitem.is-retrying', { timeout: 30000 }).catch(() => {});
     check('offline → status "mencoba lagi"', (await page.locator('.dv-upitem.is-retrying').count()) === 1, (await itemStatus(page)).join(' | '));
     await page.screenshot({ path: `${SHOTS}/s14-retrying.png` });
     await page.waitForTimeout(2500);
-    await ctx.setOffline(false);
+    await setNet(false);
     const bigName = big.split('/').pop();
     await page.waitForSelector(`.dv-upitem.is-done:has-text("${bigName}")`, { timeout: 120000 }).catch(() => {});
     check('online lagi → upload besar selesai', (await page.locator(`.dv-upitem.is-done:has-text("${bigName}")`).count()) === 1, (await itemStatus(page)).join(' | '));
@@ -80,7 +86,8 @@ try {
     await page.waitForFunction(() => {
       const t = document.querySelector('.dv-upitem.is-uploading .dv-upitem__status')?.textContent ?? '';
       const m = /(\d+)%/.exec(t);
-      return m && Number(m[1]) >= 25;
+      // ≥ 45%: chunk pertama (16 MB = 40%) sudah tersimpan; reload di tengah chunk pertama sah lanjut dari 0.
+      return m && Number(m[1]) >= 45;
     }, null, { timeout: 60000 });
     page.once('dialog', (d) => void d.accept());
     await page.reload({ waitUntil: 'networkidle' });

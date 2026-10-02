@@ -51,28 +51,6 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 
 ## Terbuka
 
-### [ ] ST-001 — Nama aplikasi "GDrive Tube", logo & foto profil: cek setting lama + uji di produksi
-- **Asal:** perubahan fitur 2026-10-02 (nama aplikasi bisa diatur, logo/favicon, foto profil) — commit di branch `claude/cloud-pricing-token-63p7bp`
-- **Kapan:** sesudah deploy (migrasi `002_avatar.sql` dan folder `storage/public/avatars` dibuat otomatis oleh `deploy.sh`)
-- **Butuh user:** 🧑 ya — hanya bila langkah 1 menemukan nama lama tersimpan: tanya user apakah diganti ke "GDrive Tube"
-- **Kenapa:** default baru hanya berlaku bila kunci belum pernah disimpan. Bila `site.name`/`site.channel_name`/`site.channel_handle` sudah ada di tabel `settings`, situs tetap bernama lama.
-- **Langkah:**
-  ```bash
-  # 1. Nilai site.* yang tersimpan (kosong = memakai default baru)
-  P=$(grep '^DB_PASSWORD=' /www/wwwroot/video.dymas.cloud/.env | cut -d= -f2-)
-  /www/server/mysql/bin/mysql -udummy -p"$P" dummy -e "SELECT \`key\`, value FROM settings WHERE \`key\` LIKE 'site.%'"
-  # 2. Migrasi & folder
-  /www/server/mysql/bin/mysql -udummy -p"$P" dummy -e "SELECT id FROM schema_migrations; SHOW COLUMNS FROM users LIKE 'avatar_key'"
-  ls -ld /www/wwwroot/video.dymas.cloud/storage/public/avatars
-  # 3. Nama di HTML & API
-  curl -fsS https://video.dymas.cloud/ | grep -o '<title>[^<]*</title>'
-  curl -fsS https://video.dymas.cloud/api/site
-  ```
-  Bila langkah 1 menampilkan nama lama dan user setuju diganti: ubah lewat Studio → Pengaturan → Situs (bukan SQL langsung, agar tercatat di audit log).
-- **Verifikasi:** `<title>GDrive Tube</title>` (atau nama pilihan user); `avatar_key` ada; folder `avatars` milik `www`. Uji manual di browser: upload foto profil di `/account`, upload logo + favicon di `/admin/settings/site`, tab browser menampilkan favicon baru, lalu hapus lagi bila hanya uji. File baru muncul di `storage/public/{avatars,branding}` dan bisa dibuka lewat `https://video.dymas.cloud/media/...` (alias nginx `/media/` sudah mencakup subfolder baru — tidak perlu ubah nginx).
-- **Rollback:** fitur tidak mengubah konfigurasi server; kolom `avatar_key` boleh dibiarkan.
-- **Hasil:** _(diisi Claude di server)_
-
 ### [ ] ST-002 — Step 11 (pemutar mobile & lanjutan): verifikasi produksi + uji HP nyata
 - **Asal:** Step 11 (branch `claude/cloud-pricing-token-63p7bp`)
 - **Kapan:** sesudah deploy
@@ -98,7 +76,7 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
   10. Jaringan lambat (mis. matikan Wi-Fi, pakai data 3G) → kualitas Otomatis turun tanpa layar hitam.
 - **Verifikasi:** player-test3 25/25 di server + jawaban user untuk 10 butir (✅/❌ + catatan HP & browser).
 - **Rollback:** tidak ada perubahan konfigurasi server.
-- **Hasil:** _(diisi Claude di server)_
+- **Hasil:** 2026-10-02 (sebagian) player-test3 **25/25** di instance uji server (Chromium `chromium-1234` dengan H.264). Checklist 10 butir HP nyata **menunggu user** 🧑.
 
 ### [ ] ST-003 — Step 12 (halaman tonton): uji dengan Drive asli + bandingkan dengan YouTube
 - **Asal:** Step 12 (branch `claude/cloud-pricing-token-63p7bp`)
@@ -117,24 +95,7 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
   Di produksi (setelah user setuju): pada satu video uji → ubah judul (cek nama file di Drive ikut berubah, subtitle `.srt` ikut berganti nama), jadikan Privat lalu Publik, lalu Hapus (file masuk Trash Drive; pulihkan dari Trash → video kembali setelah sinkron).
 - **Verifikasi:** watch-test 19/19; selisih visual yang mencolok dengan YouTube dicatat & diperbaiki; perilaku Drive sesuai.
 - **Rollback:** tidak ada perubahan konfigurasi server.
-- **Hasil:** _(diisi Claude di server)_
-
-### [ ] ST-004 — Step 13 (playlist): npm ci paket baru + uji produksi
-- **Asal:** Step 13 (branch `claude/cloud-pricing-token-63p7bp`)
-- **Kapan:** sesudah deploy (`deploy.sh` otomatis `npm ci` karena `package-lock.json` berubah: paket baru `@dnd-kit/*`)
-- **Butuh user:** tidak
-- **Kenapa:** pastikan `npm ci` di server berhasil mengambil paket baru (lockfile kini berisi campuran URL `registry.npmmirror.com` lama + `registry.npmjs.org` untuk @dnd-kit) dan fitur playlist berjalan di produksi.
-- **Langkah:**
-  ```bash
-  ls /www/wwwroot/video.dymas.cloud/node_modules/@dnd-kit   # core, sortable, utilities
-  bash scripts/dev/test-instance.sh start
-  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/playlist-test.mjs . && CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node playlist-test.mjs   # harus 18/18
-  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
-  ```
-  Di https://video.dymas.cloud: Simpan video ke playlist baru (tamu & admin), buka /playlist?list=…, geser urutan, Putar semua.
-- **Verifikasi:** folder @dnd-kit ada; playlist-test 18/18; alur manual berjalan.
-- **Rollback:** bila `npm ci` gagal karena registry: `npm ci --registry=https://registry.npmmirror.com` (atau sebaliknya `--registry=https://registry.npmjs.org/`).
-- **Hasil:** _(diisi Claude di server)_
+- **Hasil:** 2026-10-02 (sebagian) watch-test **19/19** di server. Perbandingan visual dengan youtube.com sudah (1440×900 & 412×915, gelap; `/root/dv-qa/ytshot.mjs`, gambar `/root/dv-qa/shots/{yt,app,cmp}-*.png`): masthead, guide, kartu, mobile **setara**; YouTube desktop kini memakai tata letak baru (kontrol pemutar berbentuk pil, margin tonton 16/12 px, kolom kanan 396 px + thumbnail 248 px, hasil pencarian thumbnail 500 px rata kiri) — aplikasi tetap tata letak klasik, **menunggu keputusan user**. Uji ubah judul/privat/hapus di Drive asli **menunggu izin user** 🧑 (butuh video uji).
 
 ### [ ] ST-005 — Step 14 (upload): uji upload besar ke Drive asli
 - **Asal:** Step 14 (branch `claude/cloud-pricing-token-63p7bp`)
@@ -154,9 +115,97 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
   Lalu minta user: login sebagai user biasa → Upload file ≥ 1 GB (Privat) → putus Wi-Fi sebentar → upload lanjut → file muncul di folder Drive dengan nama sama → status Memproses → Siap; dari browser lain (tamu) URL video → "Video tidak tersedia".
 - **Verifikasi:** upload-test 10/10; upload user selesai tanpa mulai dari 0; ukuran file di Drive sama; video privat tak terlihat tamu.
 - **Rollback:** tidak ada perubahan konfigurasi server.
-- **Hasil:** _(diisi Claude di server)_
+- **Hasil:** 2026-10-02 (sebagian) nginx `/api/uploads`: `client_max_body_size 64m` + `proxy_request_buffering off` + **`proxy_cache off`** (ditambahkan, lihat ST-007). upload-test **10/10** di server setelah perbaikan skrip uji (sebelumnya 8/10: di Playwright 1.63 + chromium-1234, `emulateNetworkConditions` dari sesi CDP skrip menimpa `ctx.setOffline(true)` sehingga browser tidak pernah offline; reload pada 25% jatuh di tengah chunk pertama 16 MB → sah lanjut dari 0). Kini: offline → "mencoba lagi" (40%) → lanjut; reload → lanjut dari 40%. Upload ≥ 1 GB oleh user **menunggu user** 🧑.
 
-### [ ] ST-006 — Step 15 (panel admin): verifikasi di produksi
+### [ ] ST-008 — Step 17 (QA akhir): regresi di server, perbandingan YouTube, uji perangkat nyata, serah terima
+- **Asal:** Step 17 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy, **setelah ST-001 s/d ST-007 selesai**
+- **Butuh user:** 🧑 ya — uji di perangkat nyata (checklist langkah 4) dan konfirmasi hasilnya. Langkah 1–3 tidak butuh user.
+- **Kenapa:** di Claude cloud hanya ada Chromium (iPhone/iPad/Android = emulasi, bukan Safari/Firefox asli), youtube.com tidak bisa dibuka, dan tidak ada Drive asli. Kriteria Penerimaan PRD §10 (1, 3, 4, 5, 7) hanya bisa dibuktikan di sini.
+- **Langkah:**
+  1. Regresi di instance uji server (urutan penting — `security-test` terakhir karena mengunci login 127.0.0.1):
+     ```bash
+     cd /www/wwwroot/video.dymas.cloud && export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
+     npm test && bash scripts/dev/test-instance.sh start
+     BASE=http://127.0.0.1:3299 SMOKE_PASS=admin12345 bash scripts/smoke.sh
+     cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/*.mjs . && export CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome
+     source /root/dv-qa/api.sh && login && post /api/admin/users '{"username":"budi","displayName":"Budi Santoso","password":"budi12345"}'   # bila budi belum ada (409 = sudah ada)
+     for t in player-test3 watch-test playlist-test admin-test; do node $t.mjs | tail -1; done
+     node upload-test.mjs media-src/Musik/Live/Konser.webm <file-acak-40MB>      # head -c 41943040 /dev/urandom > /root/dv-qa/big.mp4
+     QA_DIR=/www/wwwroot/video.dymas.cloud/storage/qa node matrix-test.mjs | tail -1   # 1128/1128 di cloud
+     node security-test.mjs | tail -1
+     bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+     ```
+     Hasil cloud (2026-10-02): smoke 9/9, player-test3 25/25, watch 19/19, playlist 18/18, admin 29/29, upload 10/10, matrix 1128/1128, security 48/48 — angka di server harus sama.
+  2. Smoke produksi: `bash scripts/smoke.sh` → `0 gagal`.
+  3. Screenshot berdampingan aplikasi produksi vs youtube.com (beranda, tonton, mode bioskop, pencarian, playlist; desktop 1440×900 & mobile 412×915; gelap & terang) dengan `shot.mjs` + `yt.mjs` → simpan di `storage/qa/` (tidak disajikan nginx). Perbaiki selisih tata letak/jarak/ukuran font/warna yang terlihat, commit + push.
+  4. 🧑 Minta user menguji di perangkat nyata dengan checklist ini (ditambah checklist pemutar ST-002), catat ✅/❌ per perangkat: **Firefox desktop, Safari macOS (bila ada), Android Chrome, iPhone Safari, iPad Safari**.
+     - [ ] Beranda: kartu & chip kategori tampil, scroll tak berujung, tema Gelap/Terang/Ikuti perangkat dari menu akun.
+     - [ ] Login (dengan & tanpa "Ingat saya"), logout.
+     - [ ] Tonton: putar dalam ≤ ±2 dtk, lompat ke tengah video tanpa menunggu unduhan, ganti kualitas, subtitle, layar penuh (HP: otomatis landscape; iPhone: pemutar bawaan iOS), double-tap ±10 dtk, tahan = 2x, autoplay berikutnya.
+     - [ ] Tamu: Simpan → Buat playlist baru → video tersimpan; playlist hanya ada di perangkat itu; setelah login muncul tawaran impor.
+     - [ ] User: Upload dari HP (galeri) sebagai **Privat** → status Memproses → Siap; URL-nya dibuka dari perangkat lain tanpa login → "Video tidak tersedia".
+     - [ ] User: playlist **Publik** → terlihat di Jelajahi Playlist dari perangkat lain.
+     - [ ] Bagikan → WhatsApp/Salin link membuka video yang benar (dengan "Mulai pada").
+     - [ ] Admin di tablet/desktop: Dasbor, Pengguna (buat user), Video (ubah visibilitas), Pengaturan → Situs (ganti nama → langsung berubah).
+  5. Isi tabel Kriteria Penerimaan PRD §10 (1–8) di CLAUDE.md bagian *QA akhir* dengan hasil produksi; perbaiki semua ❌.
+  6. Centang Step 17 di CLAUDE.md (ubah dari `[~]`), ubah catatan "belum di-deploy" Step 11–17 menjadi "sudah di-deploy", commit + push. Sampaikan ringkasan serah terima ke user (README.md bagian *Panduan singkat pemilik*).
+- **Verifikasi:** semua angka regresi sama dengan hasil cloud; smoke produksi 0 gagal; checklist perangkat nyata ✅ (❌ diperbaiki atau dicatat sebagai keterbatasan browser); tabel PRD §10 lengkap.
+- **Rollback:** tidak ada perubahan konfigurasi server.
+- **Hasil:** 2026-10-02 (sebagian) Langkah 1 di server: unit 136/136 · 44/44, smoke instance uji 8/8 (video privat dilewati), player-test3 25/25, watch 19/19, playlist 18/18, admin 29/29, upload 10/10, matrix 1128/1128, security 44/44 — semua lulus. Langkah 2: smoke produksi lihat ST-007 (perlu `SMOKE_PASS`). Langkah 3: lihat ST-003 (setara untuk tata letak klasik; tata letak baru YouTube menunggu keputusan user). Langkah 4–6 **menunggu user** 🧑. Tambahan checklist dari ST-001: upload foto profil di `/account`, logo + favicon di `/admin/settings/site` lalu hapus lagi.
+
+---
+
+## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
+
+Jangan dikerjakan sebelum dipindah ke *Terbuka*.
+
+_(kosong — semua step sudah di-push; item baru ditambahkan bila ada perubahan kode berikutnya)_
+
+---
+
+## Selesai
+
+### [x] ST-001 — Nama aplikasi "GDrive Tube", logo & foto profil: cek setting lama + uji di produksi
+- **Asal:** perubahan fitur 2026-10-02 (nama aplikasi bisa diatur, logo/favicon, foto profil) — commit di branch `claude/cloud-pricing-token-63p7bp`
+- **Kapan:** sesudah deploy (migrasi `002_avatar.sql` dan folder `storage/public/avatars` dibuat otomatis oleh `deploy.sh`)
+- **Butuh user:** 🧑 ya — hanya bila langkah 1 menemukan nama lama tersimpan: tanya user apakah diganti ke "GDrive Tube"
+- **Kenapa:** default baru hanya berlaku bila kunci belum pernah disimpan. Bila `site.name`/`site.channel_name`/`site.channel_handle` sudah ada di tabel `settings`, situs tetap bernama lama.
+- **Langkah:**
+  ```bash
+  # 1. Nilai site.* yang tersimpan (kosong = memakai default baru)
+  P=$(grep '^DB_PASSWORD=' /www/wwwroot/video.dymas.cloud/.env | cut -d= -f2-)
+  /www/server/mysql/bin/mysql -udummy -p"$P" dummy -e "SELECT \`key\`, value FROM settings WHERE \`key\` LIKE 'site.%'"
+  # 2. Migrasi & folder
+  /www/server/mysql/bin/mysql -udummy -p"$P" dummy -e "SELECT id FROM schema_migrations; SHOW COLUMNS FROM users LIKE 'avatar_key'"
+  ls -ld /www/wwwroot/video.dymas.cloud/storage/public/avatars
+  # 3. Nama di HTML & API
+  curl -fsS https://video.dymas.cloud/ | grep -o '<title>[^<]*</title>'
+  curl -fsS https://video.dymas.cloud/api/site
+  ```
+  Bila langkah 1 menampilkan nama lama dan user setuju diganti: ubah lewat Studio → Pengaturan → Situs (bukan SQL langsung, agar tercatat di audit log).
+- **Verifikasi:** `<title>GDrive Tube</title>` (atau nama pilihan user); `avatar_key` ada; folder `avatars` milik `www`. Uji manual di browser: upload foto profil di `/account`, upload logo + favicon di `/admin/settings/site`, tab browser menampilkan favicon baru, lalu hapus lagi bila hanya uji. File baru muncul di `storage/public/{avatars,branding}` dan bisa dibuka lewat `https://video.dymas.cloud/media/...` (alias nginx `/media/` sudah mencakup subfolder baru — tidak perlu ubah nginx).
+- **Rollback:** fitur tidak mengubah konfigurasi server; kolom `avatar_key` boleh dibiarkan.
+- **Hasil:** 2026-10-02 ✅ Tidak ada kunci `site.*` tersimpan di `settings` produksi → default baru langsung berlaku (tidak perlu tanya user). `schema_migrations` = 001_init, 002_avatar; kolom `users.avatar_key` ada; `storage/public/avatars` & `branding` milik www. `<title>GDrive Tube</title>`, `/api/site` → name/channelName "GDrive Tube", handle `gdrivetube`. Uji upload logo/favicon/foto profil lewat browser **belum** (password admin produksi sudah diganti, Claude tidak login) → dipindah ke checklist user ST-008.
+
+### [x] ST-004 — Step 13 (playlist): npm ci paket baru + uji produksi
+- **Asal:** Step 13 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy (`deploy.sh` otomatis `npm ci` karena `package-lock.json` berubah: paket baru `@dnd-kit/*`)
+- **Butuh user:** tidak
+- **Kenapa:** pastikan `npm ci` di server berhasil mengambil paket baru (lockfile kini berisi campuran URL `registry.npmmirror.com` lama + `registry.npmjs.org` untuk @dnd-kit) dan fitur playlist berjalan di produksi.
+- **Langkah:**
+  ```bash
+  ls /www/wwwroot/video.dymas.cloud/node_modules/@dnd-kit   # core, sortable, utilities
+  bash scripts/dev/test-instance.sh start
+  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/playlist-test.mjs . && CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node playlist-test.mjs   # harus 18/18
+  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+  ```
+  Di https://video.dymas.cloud: Simpan video ke playlist baru (tamu & admin), buka /playlist?list=…, geser urutan, Putar semua.
+- **Verifikasi:** folder @dnd-kit ada; playlist-test 18/18; alur manual berjalan.
+- **Rollback:** bila `npm ci` gagal karena registry: `npm ci --registry=https://registry.npmmirror.com` (atau sebaliknya `--registry=https://registry.npmjs.org/`).
+- **Hasil:** 2026-10-02 ✅ `npm ci` dari registry npmmirror berhasil (lockfile campuran tidak bermasalah); `node_modules/@dnd-kit/{accessibility,core,sortable,utilities}` ada; playlist-test **18/18** di server. Alur manual di produksi (tamu & admin) masuk checklist user ST-008.
+
+### [x] ST-006 — Step 15 (panel admin): verifikasi di produksi
 - **Asal:** Step 15 (branch `claude/cloud-pricing-token-63p7bp`)
 - **Kapan:** sesudah deploy
 - **Butuh user:** tidak (jangan menghapus/mengubah user atau video asli; pakai user uji yang dibuat lalu dihapus lagi)
@@ -170,9 +219,9 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
   Lalu buka https://video.dymas.cloud/admin sebagai admin: dasbor (disk sesuai `df -h /www`, ffmpeg 4.4.2), Pengguna, Video, Log Aktivitas. Cek user biasa → `/admin` ditolak.
 - **Verifikasi:** admin-test 29/29; angka dasbor masuk akal.
 - **Rollback:** tidak ada perubahan konfigurasi server.
-- **Hasil:** _(diisi Claude di server)_
+- **Hasil:** 2026-10-02 ✅ admin-test **29/29** di server. `GET /api/admin/system` (instance uji, disk & ffmpeg yang sama): ffmpeg `4.4.2-0ubuntu0.22.04.1`, disk free 51,3 GB / total 116,4 GB = `df -h /` (48G/109G). Tampilan /admin produksi dicek user (checklist ST-008; Claude tidak punya password admin yang baru).
 
-### [ ] ST-007 — Step 16 (operasional): logrotate, backup DB harian, backup .env, gzip, smoke & uji keamanan
+### [x] ST-007 — Step 16 (operasional): logrotate, backup DB harian, backup .env, gzip, smoke & uji keamanan
 - **Asal:** Step 16 (branch `claude/cloud-pricing-token-63p7bp`)
 - **Kapan:** sesudah deploy
 - **Butuh user:** 🧑 ya — hanya bila API aaPanel untuk cron backup gagal (user membuat cron lewat UI, langkah 2b). Langkah lain tidak.
@@ -213,55 +262,4 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
   9. (Opsional) Lighthouse mobile beranda & `/watch?v=<id>` dengan Chromium server: `npx -y lighthouse@12 https://video.dymas.cloud/ --chrome-flags='--headless --no-sandbox' --only-categories=performance --form-factor=mobile --quiet --output=json | python3 -c 'import sys,json;print(json.load(sys.stdin)["categories"]["performance"]["score"])'` — target ≥ 0,85. Catat angkanya di CLAUDE.md.
 - **Verifikasi:** `ls -l /etc/logrotate.d/video_dymas` ada; cron backup tampil di `GetCrontab` (03:00, save 7) dan — setelah 03:00 berikutnya — file backup ada di `/www/backup/database/`; `/root/backup/video_dymas.env` mode 600 dan `cmp` sama dengan `.env`; respons JSON & JS ber-`content-encoding: gzip`; smoke `0 gagal`; security-test 48/48; health OK setelah restart.
 - **Rollback:** `rm /etc/logrotate.d/video_dymas`; hapus cron di aaPanel; kembalikan `scripts/nginx-custom.conf` dari git lalu pasang ulang & reload nginx.
-- **Hasil:** _(diisi Claude di server)_
-
-### [ ] ST-008 — Step 17 (QA akhir): regresi di server, perbandingan YouTube, uji perangkat nyata, serah terima
-- **Asal:** Step 17 (branch `claude/cloud-pricing-token-63p7bp`)
-- **Kapan:** sesudah deploy, **setelah ST-001 s/d ST-007 selesai**
-- **Butuh user:** 🧑 ya — uji di perangkat nyata (checklist langkah 4) dan konfirmasi hasilnya. Langkah 1–3 tidak butuh user.
-- **Kenapa:** di Claude cloud hanya ada Chromium (iPhone/iPad/Android = emulasi, bukan Safari/Firefox asli), youtube.com tidak bisa dibuka, dan tidak ada Drive asli. Kriteria Penerimaan PRD §10 (1, 3, 4, 5, 7) hanya bisa dibuktikan di sini.
-- **Langkah:**
-  1. Regresi di instance uji server (urutan penting — `security-test` terakhir karena mengunci login 127.0.0.1):
-     ```bash
-     cd /www/wwwroot/video.dymas.cloud && export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
-     npm test && bash scripts/dev/test-instance.sh start
-     BASE=http://127.0.0.1:3299 SMOKE_PASS=admin12345 bash scripts/smoke.sh
-     cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/*.mjs . && export CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome
-     source /root/dv-qa/api.sh && login && post /api/admin/users '{"username":"budi","displayName":"Budi Santoso","password":"budi12345"}'   # bila budi belum ada (409 = sudah ada)
-     for t in player-test3 watch-test playlist-test admin-test; do node $t.mjs | tail -1; done
-     node upload-test.mjs media-src/Musik/Live/Konser.webm <file-acak-40MB>      # head -c 41943040 /dev/urandom > /root/dv-qa/big.mp4
-     QA_DIR=/www/wwwroot/video.dymas.cloud/storage/qa node matrix-test.mjs | tail -1   # 1128/1128 di cloud
-     node security-test.mjs | tail -1
-     bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
-     ```
-     Hasil cloud (2026-10-02): smoke 9/9, player-test3 25/25, watch 19/19, playlist 18/18, admin 29/29, upload 10/10, matrix 1128/1128, security 48/48 — angka di server harus sama.
-  2. Smoke produksi: `bash scripts/smoke.sh` → `0 gagal`.
-  3. Screenshot berdampingan aplikasi produksi vs youtube.com (beranda, tonton, mode bioskop, pencarian, playlist; desktop 1440×900 & mobile 412×915; gelap & terang) dengan `shot.mjs` + `yt.mjs` → simpan di `storage/qa/` (tidak disajikan nginx). Perbaiki selisih tata letak/jarak/ukuran font/warna yang terlihat, commit + push.
-  4. 🧑 Minta user menguji di perangkat nyata dengan checklist ini (ditambah checklist pemutar ST-002), catat ✅/❌ per perangkat: **Firefox desktop, Safari macOS (bila ada), Android Chrome, iPhone Safari, iPad Safari**.
-     - [ ] Beranda: kartu & chip kategori tampil, scroll tak berujung, tema Gelap/Terang/Ikuti perangkat dari menu akun.
-     - [ ] Login (dengan & tanpa "Ingat saya"), logout.
-     - [ ] Tonton: putar dalam ≤ ±2 dtk, lompat ke tengah video tanpa menunggu unduhan, ganti kualitas, subtitle, layar penuh (HP: otomatis landscape; iPhone: pemutar bawaan iOS), double-tap ±10 dtk, tahan = 2x, autoplay berikutnya.
-     - [ ] Tamu: Simpan → Buat playlist baru → video tersimpan; playlist hanya ada di perangkat itu; setelah login muncul tawaran impor.
-     - [ ] User: Upload dari HP (galeri) sebagai **Privat** → status Memproses → Siap; URL-nya dibuka dari perangkat lain tanpa login → "Video tidak tersedia".
-     - [ ] User: playlist **Publik** → terlihat di Jelajahi Playlist dari perangkat lain.
-     - [ ] Bagikan → WhatsApp/Salin link membuka video yang benar (dengan "Mulai pada").
-     - [ ] Admin di tablet/desktop: Dasbor, Pengguna (buat user), Video (ubah visibilitas), Pengaturan → Situs (ganti nama → langsung berubah).
-  5. Isi tabel Kriteria Penerimaan PRD §10 (1–8) di CLAUDE.md bagian *QA akhir* dengan hasil produksi; perbaiki semua ❌.
-  6. Centang Step 17 di CLAUDE.md (ubah dari `[~]`), ubah catatan "belum di-deploy" Step 11–17 menjadi "sudah di-deploy", commit + push. Sampaikan ringkasan serah terima ke user (README.md bagian *Panduan singkat pemilik*).
-- **Verifikasi:** semua angka regresi sama dengan hasil cloud; smoke produksi 0 gagal; checklist perangkat nyata ✅ (❌ diperbaiki atau dicatat sebagai keterbatasan browser); tabel PRD §10 lengkap.
-- **Rollback:** tidak ada perubahan konfigurasi server.
-- **Hasil:** _(diisi Claude di server)_
-
----
-
-## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
-
-Jangan dikerjakan sebelum dipindah ke *Terbuka*.
-
-_(kosong — semua step sudah di-push; item baru ditambahkan bila ada perubahan kode berikutnya)_
-
----
-
-## Selesai
-
-_(belum ada)_
+- **Hasil:** 2026-10-02 ✅ (1) `/etc/logrotate.d/video_dymas` terpasang, dry-run tanpa error. (2) Cron aaPanel lewat API `AddCrontab` (field dari `class/crontab.py`: name,type=day,where1,hour=3,minute=0,save=7,backupTo=localhost,sType=database,sName=dummy,sBody,urladdress) → **id 15** `[GDrive Tube] Backup DB dummy`, `0 3 * * *` (WIB); dijalankan sekali (`StartTask`) → `/www/backup/database/mysql/crontab_backup/dummy/db_dummy_20261002_221438_mysql_data.sql.gz`. (3) `/root/backup/video_dymas.env` mode 600 identik dengan `.env`. (4) gzip global sudah lengkap → `content-encoding: gzip` untuk JSON, JS, CSS (tidak perlu ubah nginx untuk gzip). (5) Smoke produksi: 5 lulus / 2 gagal → **stream Range 200** (nginx `proxy.conf` global `proxy_cache cache_one` membuang Range; diperbaiki dengan `proxy_cache off` di `/stream/` & `/api/uploads` di `scripts/nginx-custom.conf`, dipasang + reload; kini 206 di awal & tengah file) dan **login admin 401** (password admin sudah diganti → jalankan `SMOKE_PASS=… bash scripts/smoke.sh` bersama user). (6) security-test **44/44** (jumlah cek bergantung subtitle data uji). (7) `/api/feed` → `private, no-store`; `/api/site` → `private, no-cache` + ETag. (8) restart via API (deploy) → health OK; `is_power_on=1` di config project. (9) Lighthouse opsional tidak dijalankan.

@@ -35,7 +35,7 @@ else
 fi
 
 # --- Pengingat konfigurasi server yang tidak dipasang otomatis (lihat SERVER-TODO.md) ---
-OPEN=$(grep -E '^### \[ \] ST-' SERVER-TODO.md 2>/dev/null || true)
+OPEN=$(grep -E '^### \[ \] ST-[0-9]{3} ' SERVER-TODO.md 2>/dev/null || true)
 if [ -n "$OPEN" ]; then
   echo
   echo "[pull-deploy] PERHATIAN: item SERVER-TODO.md yang masih terbuka:"
