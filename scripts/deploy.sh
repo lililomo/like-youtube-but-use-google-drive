@@ -23,6 +23,10 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     log "migrate"
     npm run migrate
   fi
+  if [ -f server/dist/seed.js ]; then
+    log "seed (admin awal, idempoten)"
+    npm run seed
+  fi
 fi
 
 log "izin file"

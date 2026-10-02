@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { config } from './config.js';
+import { closeDb } from './db.js';
 
 const app = await buildApp();
 
@@ -12,6 +13,7 @@ async function shutdown(signal: string): Promise<void> {
   force.unref();
   try {
     await app.close();
+    await closeDb();
   } finally {
     process.exit(0);
   }

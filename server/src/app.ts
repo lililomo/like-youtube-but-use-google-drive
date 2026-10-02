@@ -1,6 +1,8 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { APP_VERSION, config, isProd } from './config.js';
+import { pingDb } from './db.js';
 import { AppError, errorBody } from './lib/errors.js';
+import { settings } from './modules/settings/service.js';
 import { registerSpa } from './plugins/spa.js';
 
 const startedAt = Date.now();
@@ -52,11 +54,17 @@ export async function buildApp(): Promise<FastifyInstance> {
     return reply.code(status).send(errorBody(status >= 500 ? 'INTERNAL' : 'ERROR', message));
   });
 
-  app.get('/api/health', async () => ({
-    ok: true,
-    version: APP_VERSION,
-    uptime: Math.round((Date.now() - startedAt) / 1000),
-  }));
+  await settings.load();
+
+  app.get('/api/health', async (_req, reply) => {
+    const db = await pingDb();
+    return reply.code(db ? 200 : 503).send({
+      ok: db,
+      db,
+      version: APP_VERSION,
+      uptime: Math.round((Date.now() - startedAt) / 1000),
+    });
+  });
 
   await registerSpa(app, { distDir: config.WEB_DIST_DIR });
 

@@ -19,7 +19,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 ### Progres
 - [x] Step 0 — Persiapan server (ffmpeg, bt-api.py, DB `dummy`, git) — 2026-10-02
 - [x] Step 1 — Kerangka proyek, Node Project aaPanel, nginx custom, SSL — 2026-10-02
-- [ ] Step 2 — Database, migrasi, settings, kriptografi
+- [x] Step 2 — Database, migrasi, settings, kriptografi — 2026-10-02
 - [ ] Step 3 — Auth, sesi, CSRF, tamu, manajemen user
 - [ ] Step 4 — Fondasi frontend & design system YouTube
 - [ ] Step 5 — Integrasi Google Drive (🧑 user membuat kredensial)
@@ -65,6 +65,9 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Log nginx | `/www/wwwlogs/` |
 | SSL | Let's Encrypt (issuer YR1) via aaPanel ACME (`apply_cert_api` id=30, HTTP-01) + `SetSSL` siteName=video_dymas + Force HTTPS aktif; sertifikat di `/www/server/panel/vhost/cert/video_dymas/`; berlaku s/d 2026-12-31, auto-renew oleh aaPanel |
 | Storage lokal | `storage/public/{thumbs,sb,branding}` (→ `/media/` via nginx), `storage/cache/subs`, `storage/tmp` |
+| Database aplikasi | 15 tabel dari `server/migrations/001_init.sql` (users, sessions, categories, videos, video_renditions, subtitles, playlists, playlist_items, watch_history, jobs, uploads, settings, oauth_states, audit_logs, schema_migrations); semua `utf8mb4_unicode_ci`; waktu UTC (`SET time_zone='+00:00'` per koneksi, mysql2 `timezone:'Z'`). Koneksi app via socket `/tmp/mysql.sock` (DB_HOST=localhost + DB_SOCKET) |
+| Admin awal | dibuat seeder 2026-10-02 (user id 1, argon2id m=19456,t=2,p=1) |
+| Settings | tabel `settings` (JSON); rahasia (`drive.oauth_client_secret`, `drive.oauth_refresh_token`, `drive.service_account_json`) AES-256-GCM `v1:` dengan kunci HKDF(APP_KEY,"dv-enc"); default di `server/src/modules/settings/service.ts` |
 | Static web | `web/dist` — `/assets/*` disajikan nginx (immutable 1 th); `index.html` & SPA fallback oleh Fastify (`no-cache`) |
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
@@ -87,8 +90,10 @@ Argumen `key=value` dikirim sebagai form field. Cookie jar: `/root/.bt-api-cooki
 ```bash
 export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
 npm run build                       # tsc server + vite build web
-npm run migrate                     # migrasi DB (setelah build)
-bash scripts/deploy.sh              # npm ci (bila lock berubah) → build → migrate → chown → restart aaPanel → health
+npm run migrate                     # migrasi DB (setelah build; idempoten)
+npm run seed                        # admin awal bila belum ada admin (idempoten)
+npm test                            # vitest server + web
+bash scripts/deploy.sh              # npm ci (bila lock berubah) → build → migrate → seed → chown → restart aaPanel → health
 SKIP_BUILD=1 bash scripts/deploy.sh # restart saja
 python3 scripts/bt-api.py /project/nodejs/restart_project/json 'data={"project_name":"video_dymas"}'
 tail -f /www/server/nodejs/vhost/logs/video_dymas.log
@@ -109,3 +114,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Analisis server; dibuat PRD.md, SPEC.md, PROMPT.md, CLAUDE.md. Belum ada kode.
 - 2026-10-02 — Step 0: ffmpeg 4.4.2 dipasang (apt); `scripts/bt-api.py` dibuat & teruji; DB `dummy` dibuat via aaPanel API; git lokal diinisialisasi (branch main, tanpa remote).
 - 2026-10-02 — Step 1: monorepo server (Fastify 5/TS) + web (Vite 7/React 19); `/api/health`; SPA fallback; `.env`; `scripts/deploy.sh`; Node Project aaPanel `video_dymas` (id 30, port 3210); nginx custom terpasang di rewrite include; SSL Let's Encrypt + Force HTTPS.
+- 2026-10-02 — Step 2: db.ts (pool mysql2), migrasi 001_init + runner, seeder admin, lib crypto/ids/password/errors, SettingsService (cache + enkripsi rahasia), `/api/health` cek DB; 13 unit test lulus.
