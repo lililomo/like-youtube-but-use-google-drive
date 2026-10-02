@@ -11,7 +11,7 @@ import { cancelRunningJob, workerStats } from './worker.js';
 
 const listQuery = z.object({
   status: z.enum(['queued', 'running', 'done', 'failed', 'cancelled']).optional(),
-  type: z.enum(['probe', 'thumbnail', 'media', 'delete_assets']).optional(),
+  type: z.enum(['probe', 'thumbnail', 'media', 'faststart', 'delete_assets']).optional(),
   cursor: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
@@ -24,9 +24,9 @@ export async function jobSummary() {
 }
 
 /** Proses ulang: hanya thumbnail, atau semuanya (rendition lama dihapus lalu probe ulang). */
-export async function enqueueReprocess(videoId: number, only: 'all' | 'thumbnail' = 'all'): Promise<void> {
-  if (only === 'thumbnail') {
-    await enqueueJob('thumbnail', { videoId });
+export async function enqueueReprocess(videoId: number, only: 'all' | 'thumbnail' | 'faststart' = 'all'): Promise<void> {
+  if (only === 'thumbnail' || only === 'faststart') {
+    await enqueueJob(only, { videoId });
     return;
   }
   await enqueueJob('delete_assets', { videoId, payload: { mode: 'renditions' }, priority: 0 });
@@ -117,7 +117,7 @@ export async function processingRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/admin/videos/:id/reprocess', { preHandler: requireAdmin }, async (req) => {
     const { id } = parse(z.object({ id: z.string() }), req.params);
-    const body = parse(z.object({ only: z.enum(['all', 'thumbnail']).default('all') }), req.body ?? {});
+    const body = parse(z.object({ only: z.enum(['all', 'thumbnail', 'faststart']).default('all') }), req.body ?? {});
     if (!isVideoId(id)) throw notFound('Video tidak ditemukan');
     const v = await queryOne<{ id: number }>('SELECT id FROM videos WHERE public_id = ? AND deleted_at IS NULL', [id]);
     if (!v) throw notFound('Video tidak ditemukan');

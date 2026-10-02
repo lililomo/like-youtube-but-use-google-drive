@@ -155,7 +155,9 @@ async function upsertVideo(file: DriveFile, parentId: string, categoryId: number
   const size = Number(file.size ?? 0);
   if (Number(existing.size_bytes) !== size) set('size_bytes', size);
 
-  const contentChanged = Boolean(existing.md5 && file.md5Checksum && existing.md5 !== file.md5Checksum);
+  // dvFs = md5 hasil faststart yang ditulis aplikasi sendiri (processing/faststart.ts): isi stream identik → bukan "isi diganti".
+  const ownRewrite = Boolean(file.md5Checksum && file.appProperties?.dvFs === file.md5Checksum);
+  const contentChanged = !ownRewrite && Boolean(existing.md5 && file.md5Checksum && existing.md5 !== file.md5Checksum);
   let reprobe = false;
   if (existing.deleted_at) {
     // Kembali muncul (restore dari Trash / dipindah balik).
@@ -175,8 +177,9 @@ async function upsertVideo(file: DriveFile, parentId: string, categoryId: number
     set('drive_modified_at', toDate(file.modifiedTime));
     reprobe = true;
     await enqueueJob('delete_assets', { videoId: existing.id, payload: { mode: 'renditions' } });
-  } else if (!existing.md5 && file.md5Checksum) {
+  } else if (file.md5Checksum && existing.md5 !== file.md5Checksum) {
     set('md5', file.md5Checksum);
+    if (ownRewrite) set('drive_modified_at', toDate(file.modifiedTime));
   }
 
   if (sets.length) {

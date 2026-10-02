@@ -324,6 +324,22 @@ export async function createResumableSession(meta: {
   return url;
 }
 
+/** Kirim seluruh file lokal ke sesi resumable dalam satu PUT (stream). */
+async function putFileToSession(session: string, path: string, size: number, mimeType: string, signal?: AbortSignal): Promise<DriveFile> {
+  const res = await request(session, {
+    method: 'PUT',
+    headers: { 'content-length': String(size), 'content-type': mimeType },
+    body: createReadStream(path),
+    dispatcher: driveAgent,
+    signal,
+    headersTimeout: 0,
+    bodyTimeout: 0,
+  });
+  const text = await res.body.text();
+  if (res.statusCode !== 200 && res.statusCode !== 201) throw parseError(res.statusCode, text);
+  return JSON.parse(text) as DriveFile;
+}
+
 /** Upload file lokal (mis. rendition) via sesi resumable, satu PUT dengan stream. */
 export async function uploadFileFromDisk(
   path: string,
@@ -331,17 +347,66 @@ export async function uploadFileFromDisk(
 ): Promise<DriveFile> {
   const size = statSync(path).size;
   const session = await createResumableSession({ ...meta, size });
-  const res = await request(session, {
-    method: 'PUT',
-    headers: { 'content-length': String(size), 'content-type': meta.mimeType },
-    body: createReadStream(path),
-    dispatcher: driveAgent,
-    headersTimeout: 0,
-    bodyTimeout: 0,
+  return putFileToSession(session, path, size, meta.mimeType);
+}
+
+/**
+ * Ganti isi file Drive yang sudah ada dengan file lokal (revisi baru; ID, nama, folder & izin berbagi tetap).
+ * Atomik di sisi Google: bila upload gagal di tengah, isi lama tetap utuh.
+ */
+export async function replaceFileContentFromDisk(
+  fileId: string,
+  path: string,
+  meta: { mimeType: string; appProperties?: Record<string, string> },
+  signal?: AbortSignal,
+): Promise<DriveFile> {
+  const size = statSync(path).size;
+  const res = await driveRequest('PATCH', `${UPLOAD_API}/files/${encodeURIComponent(fileId)}`, {
+    query: { uploadType: 'resumable', supportsAllDrives: true, fields: FILE_FIELDS },
+    headers: {
+      'content-type': 'application/json; charset=UTF-8',
+      'x-upload-content-type': meta.mimeType,
+      'x-upload-content-length': String(size),
+    },
+    body: JSON.stringify(meta.appProperties ? { appProperties: meta.appProperties } : {}),
+    signal,
   });
-  const text = await res.body.text();
-  if (res.statusCode !== 200 && res.statusCode !== 201) throw parseError(res.statusCode, text);
-  return JSON.parse(text) as DriveFile;
+  await res.body.dump();
+  const location = res.headers.location;
+  const session = Array.isArray(location) ? location[0] : location;
+  if (!session) throw new DriveError(502, 'NO_SESSION', 'Google Drive tidak mengembalikan URL sesi upload');
+  return putFileToSession(session, path, size, meta.mimeType, signal);
+}
+
+export interface DriveRevision {
+  id: string;
+  modifiedTime?: string;
+  size?: string;
+  md5Checksum?: string;
+  keepForever?: boolean;
+}
+
+/** Revisi isi file biner (urut dari terlama). */
+export async function listRevisions(fileId: string): Promise<DriveRevision[]> {
+  const res = await driveJson<{ revisions?: DriveRevision[] }>('GET', `/files/${encodeURIComponent(fileId)}/revisions`, {
+    query: { supportsAllDrives: undefined, fields: 'revisions(id,modifiedTime,size,md5Checksum,keepForever)', pageSize: 200 },
+  });
+  return res.revisions ?? [];
+}
+
+/** Hapus permanen satu revisi lama (revisi terakhir tidak bisa dihapus). */
+export async function deleteRevision(fileId: string, revisionId: string): Promise<void> {
+  await driveJson('DELETE', `/files/${encodeURIComponent(fileId)}/revisions/${encodeURIComponent(revisionId)}`, {
+    query: { supportsAllDrives: undefined },
+  });
+}
+
+/** Izin edit akun aplikasi atas file (mis. file "dibagikan kepada saya" bisa read-only). */
+export async function canEditFile(fileId: string): Promise<boolean> {
+  const f = await driveJson<{ capabilities?: { canEdit?: boolean } }>('GET', `/files/${encodeURIComponent(fileId)}`, {
+    query: { fields: 'capabilities(canEdit)' },
+  });
+  return f.capabilities?.canEdit === true;
 }
 
 /** Cabut refresh token di Google (best effort). */

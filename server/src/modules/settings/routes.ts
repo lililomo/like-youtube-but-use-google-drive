@@ -48,6 +48,7 @@ const SCHEMAS: Record<Group, z.ZodObject> = {
         .refine((a) => new Set(a).size === a.length, 'Kualitas tidak boleh ganda'),
       compat_max_height: z.union([z.literal(720), z.literal(1080)]),
       storyboard: z.boolean(),
+      faststart_original: z.boolean(),
       x264_preset: z.enum(['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium']),
       threads: z.number().int().min(1).max(16),
       nice: z.number().int().min(0).max(19),

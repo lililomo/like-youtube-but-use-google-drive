@@ -14,6 +14,7 @@ Butuh `playwright-core` (pasang di folder lain, mis. `/root/dv-qa`: `npm i playw
 | `upload-test.mjs` | Step 14: upload resumable, putus jaringan, reload, subtitle (10 cek; butuh user `budi/budi12345`) |
 | `admin-test.mjs` | Step 15: panel admin, akses user biasa/tamu ditolak (29 cek) |
 | `matrix-test.mjs` | Step 17: matriks perangkat (desktop, iPad, Android, iPhone — emulasi Chromium) × peran (tamu, user A, user B, admin) × tema (gelap, terang); cek P0, visibilitas PRD §6, error JS, scroll horizontal; screenshot ke `$QA_DIR` (default `storage/qa`). Jalankan setelah `upload-test.mjs` |
+| `ttff.mjs <videoId>...` | Ukur waktu sampai video bisa diputar & setelah seek 60% per sumber (orig/720) di produksi (Chromium dengan H.264) |
 | `security-test.mjs` | Step 16: uji keamanan black-box (48 cek; jalankan setelah `upload-test.mjs`). **Mengunci login dari 127.0.0.1 15 menit** → restart instance uji sesudahnya |
 | `api.sh` | Helper curl: `source api.sh; login; get /api/...; post /api/... '{json}'` |
 | `drive-peek.mjs` | Lihat isi folder Drive produksi (read-only), jalankan di server |

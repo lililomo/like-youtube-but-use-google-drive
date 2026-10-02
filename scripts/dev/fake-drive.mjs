@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Fake Google Drive v3 untuk pengembangan & uji integrasi (BUKAN untuk produksi).
 // Meniru endpoint yang dipakai aplikasi: about, files (get/list/create/patch), media (Range),
-// changes (startPageToken/list), upload resumable (POST session, PUT chunk, DELETE).
+// changes (startPageToken/list), upload resumable (POST session, PUT chunk, DELETE), update isi file
+// (PATCH /upload/... resumable → revisi baru) dan revisions (list/delete).
 //
 // Pemakaian:
 //   node scripts/dev/fake-drive.mjs --port 3298 --data /root/dv-qa/fakedrive [--seed /path/folder-sumber]
@@ -36,6 +37,12 @@ const save = () => writeFileSync(STATE_FILE, JSON.stringify(state));
 const newId = () => '1' + randomBytes(24).toString('base64url').slice(0, 32);
 const now = () => new Date().toISOString();
 const md5File = (p) => createHash('md5').update(readFileSync(p)).digest('hex');
+
+/** Revisi isi file (file lama di state.json belum punya → disintesis dari isi sekarang). */
+function revisions(f) {
+  if (!f.revisions) f.revisions = f.md5Checksum ? [{ id: 'r1', modifiedTime: f.modifiedTime, size: f.size, md5Checksum: f.md5Checksum, keepForever: false }] : [];
+  return f.revisions;
+}
 
 function touch(id) {
   state.changes.push({ fileId: id, time: now() });
@@ -84,7 +91,7 @@ function send(res, status, body, headers = {}) {
 const err = (res, status, reason, message) => send(res, status, { error: { code: status, message, errors: [{ reason, message }] } });
 
 function publicFile(f) {
-  const { ...rest } = f;
+  const { revisions: _revisions, ...rest } = f;
   return rest;
 }
 
@@ -156,6 +163,20 @@ const server = createServer(async (req, res) => {
         await new Promise((r, j) => fd.end(body, (e) => (e ? j(e) : r())));
         s.received += body.length;
       }
+      if (s.received >= s.size && s.targetId) {
+        const f = state.files[s.targetId];
+        if (!f) return err(res, 404, 'notFound', `File not found: ${s.targetId}.`);
+        revisions(f);
+        renameSync(s.path, join(BLOBS, f.id));
+        f.size = String(s.size);
+        f.md5Checksum = md5File(join(BLOBS, f.id));
+        f.modifiedTime = now();
+        if (s.meta.appProperties) f.appProperties = { ...(f.appProperties ?? {}), ...s.meta.appProperties };
+        f.revisions.push({ id: `r${f.revisions.length + 1}-${randomBytes(3).toString('hex')}`, modifiedTime: f.modifiedTime, size: f.size, md5Checksum: f.md5Checksum, keepForever: false });
+        touch(f.id);
+        sessions.delete(sess[1]);
+        return send(res, 200, publicFile(f));
+      }
       if (s.received >= s.size) {
         const id = newId();
         renameSync(s.path, join(BLOBS, id));
@@ -192,6 +213,33 @@ const server = createServer(async (req, res) => {
       return res.end();
     }
 
+    const upd = path.match(/^\/upload\/drive\/v3\/files\/([A-Za-z0-9_-]+)$/);
+    if (upd && req.method === 'PATCH') {
+      if (!state.files[upd[1]]) return err(res, 404, 'notFound', `File not found: ${upd[1]}.`);
+      const meta = JSON.parse((await readBody(req)).toString() || '{}');
+      const id = randomBytes(12).toString('base64url');
+      sessions.set(id, { meta, targetId: upd[1], size: Number(req.headers['x-upload-content-length'] ?? 0), received: 0, path: join(SESSIONS, id) });
+      res.writeHead(200, { location: `http://127.0.0.1:${PORT}/upload/session/${id}` });
+      return res.end();
+    }
+
+    const rv = path.match(/^\/drive\/v3\/files\/([A-Za-z0-9_-]+)\/revisions(?:\/([A-Za-z0-9_-]+))?$/);
+    if (rv) {
+      const f = state.files[rv[1]];
+      if (!f) return err(res, 404, 'notFound', `File not found: ${rv[1]}.`);
+      const revs = revisions(f);
+      if (req.method === 'GET' && !rv[2]) return send(res, 200, { revisions: revs });
+      if (req.method === 'DELETE' && rv[2]) {
+        const i = revs.findIndex((x) => x.id === rv[2]);
+        if (i < 0) return err(res, 404, 'notFound', 'Revision not found');
+        if (revs.length === 1) return err(res, 403, 'cannotDeleteOnlyRevision', 'The revision cannot be deleted.');
+        revs.splice(i, 1);
+        save();
+        res.writeHead(204);
+        return res.end();
+      }
+    }
+
     if (path === '/drive/v3/files' && req.method === 'GET') {
       const files = filterByQ(url.searchParams.get('q') ?? '');
       const size = Number(url.searchParams.get('pageSize') ?? 100);
@@ -225,7 +273,7 @@ const server = createServer(async (req, res) => {
         return send(res, 200, publicFile(f));
       }
       if (url.searchParams.get('alt') !== 'media') {
-        return send(res, 200, { ...publicFile(f), capabilities: { canAddChildren: f.mimeType === FOLDER, canListChildren: f.mimeType === FOLDER } });
+        return send(res, 200, { ...publicFile(f), capabilities: { canAddChildren: f.mimeType === FOLDER, canListChildren: f.mimeType === FOLDER, canEdit: true } });
       }
       const blob = join(BLOBS, f.id);
       if (!existsSync(blob)) return err(res, 403, 'fileNotDownloadable', 'Only files with binary content can be downloaded.');

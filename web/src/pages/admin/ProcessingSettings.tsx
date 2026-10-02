@@ -11,6 +11,7 @@ interface Processing {
   renditions: number[];
   compat_max_height: number;
   storyboard: boolean;
+  faststart_original: boolean;
   x264_preset: string;
   threads: number;
   nice: number;
@@ -92,6 +93,13 @@ export function ProcessingSettingsPage() {
             <label className="dv-row">
               <Switch checked={form.storyboard} onChange={(v) => set('storyboard', v)} label="Storyboard" />
               <span>Buat storyboard (gambar preview saat kursor di atas progress bar)</span>
+            </label>
+            <label className="dv-row">
+              <Switch checked={form.faststart_original} onChange={(v) => set('faststart_original', v)} label="Rapikan file asli" />
+              <span>
+                Rapikan file asli MP4/MOV yang indeksnya di akhir file agar mulai diputar & seek lebih cepat. Tanpa encode ulang (kualitas audio & video
+                identik), file asli di Drive <strong>ditimpa</strong> dan versi lamanya dihapus.
+              </span>
             </label>
           </div>
         </section>

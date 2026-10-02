@@ -10,7 +10,7 @@ import { toast } from '../../stores/toast';
 
 interface Job {
   id: number;
-  type: 'probe' | 'thumbnail' | 'media' | 'delete_assets';
+  type: 'probe' | 'thumbnail' | 'media' | 'faststart' | 'delete_assets';
   status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
   attempts: number;
   maxAttempts: number;
@@ -33,6 +33,7 @@ const TYPE_LABEL: Record<Job['type'], string> = {
   probe: 'Analisis',
   thumbnail: 'Thumbnail',
   media: 'Konversi & storyboard',
+  faststart: 'Rapikan file asli',
   delete_assets: 'Hapus aset',
 };
 const STATUS_LABEL: Record<Job['status'], string> = {

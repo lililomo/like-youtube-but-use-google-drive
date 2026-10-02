@@ -12,6 +12,7 @@ import { DriveError, mediaRequest, trashFile, uploadFileFromDisk } from '../driv
 import { ensureSystemFolders } from '../drive/service.js';
 import { settings } from '../settings/service.js';
 import { invalidateStreamCache } from '../stream/routes.js';
+import { faststartEligible, faststartMuxer, remoteNeedsFaststart, rewriteFaststart } from './faststart.js';
 import { enqueueJob, type JobType } from './queue.js';
 import { encodeParams, isBrowserPlayable, outputSize, planRenditions, storyboardInterval, summarizeProbe } from './media-rules.js';
 
@@ -127,6 +128,7 @@ async function probe(ctx: JobContext): Promise<void> {
     return;
   }
   if (plan.length || settings.get('processing.storyboard')) await enqueueJob('media', { videoId: v.id });
+  else if (faststartEligible({ file_name: v.file_name, original_playable: playable ? 1 : 0 })) await enqueueJob('faststart', { videoId: v.id });
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +288,10 @@ async function media(ctx: JobContext): Promise<void> {
   const short = Math.min(v.width, v.height);
   const plan = planRenditions(short, playable, settings.get('processing.renditions'), settings.get('processing.compat_max_height'));
   const wantStoryboard = settings.get('processing.storyboard') && durationSec > 0;
-  if (!plan.length && !wantStoryboard) return;
+  if (!plan.length && !wantStoryboard) {
+    if (faststartEligible(v)) await enqueueJob('faststart', { videoId: v.id });
+    return;
+  }
 
   const tmpDir = join(config.STORAGE_DIR, 'tmp');
   await mkdir(tmpDir, { recursive: true });
@@ -297,10 +302,24 @@ async function media(ctx: JobContext): Promise<void> {
   }
 
   const src = join(tmpDir, `${v.public_id}.src`);
+  let fastOut: string | null = null;
   const outputs: { path: string; height: number; kind: 'quality' | 'compat'; width: number; realHeight: number }[] = [];
   try {
     ctx.setProgress(1);
     await download(v.drive_file_id, src, size, ctx, 1, 30);
+    // File asli dirapikan dulu (cepat, tanpa encode ulang) agar 1080p asli langsung lancar sebelum konversi selesai.
+    let input = src;
+    try {
+      const rewritten = await rewriteFaststart(ctx, v, src);
+      if (rewritten) {
+        fastOut = rewritten;
+        input = rewritten;
+        await rm(src, { force: true });
+      }
+    } catch (err) {
+      if (ctx.signal.aborted) throw err;
+      ctx.log.warn({ err: (err as Error).message, publicId: v.public_id }, 'faststart gagal (file asli tidak diubah)');
+    }
 
     const nice = settings.get('processing.nice');
     if (plan.length) {
@@ -314,7 +333,7 @@ async function media(ctx: JobContext): Promise<void> {
         })
         .join(';');
       const split = plan.length > 1 ? `[0:v]split=${plan.length}${plan.map((_, i) => `[s${i}]`).join('')};` : '[0:v]null[s0];';
-      const args = ['-hide_banner', '-y', '-i', src, '-filter_complex', `${split}${scales}`];
+      const args = ['-hide_banner', '-y', '-i', input, '-filter_complex', `${split}${scales}`];
       for (const [i, p] of plan.entries()) {
         const e = encodeParams(p.height);
         const o = outputSize(v.width, v.height, p.height);
@@ -348,7 +367,7 @@ async function media(ctx: JobContext): Promise<void> {
 
     if (wantStoryboard) {
       try {
-        await makeStoryboard(v, src, durationSec, ctx);
+        await makeStoryboard(v, input, durationSec, ctx);
       } catch (err) {
         if (ctx.signal.aborted) throw err;
         ctx.log.warn({ err: (err as Error).message }, 'storyboard gagal (diabaikan)');
@@ -384,7 +403,37 @@ async function media(ctx: JobContext): Promise<void> {
     invalidateStreamCache(v.public_id);
   } finally {
     await rm(src, { force: true });
+    if (fastOut) await rm(fastOut, { force: true });
     for (const o of outputs) await rm(o.path, { force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// faststart: video lama / tanpa job media (cek Drive dulu, unduh hanya bila perlu)
+// ---------------------------------------------------------------------------
+
+async function faststart(ctx: JobContext): Promise<void> {
+  const v = await loadVideo(ctx.job.video_id);
+  if (v.deleted_at || !faststartEligible(v) || !faststartMuxer(v.file_name)) return;
+  if (!(await remoteNeedsFaststart(v, ctx.signal))) return;
+
+  const tmpDir = join(config.STORAGE_DIR, 'tmp');
+  await mkdir(tmpDir, { recursive: true });
+  const size = Number(v.size_bytes);
+  const minFree = settings.get('processing.min_free_disk_gb') * 1024 ** 3;
+  if ((await freeBytes(tmpDir)) < size * 2.2 + minFree) throw new DeferJob(30 * 60_000, 'ruang disk tidak cukup, ditunda 30 menit');
+
+  const src = join(tmpDir, `${v.public_id}.fs-src`);
+  let out: string | null = null;
+  try {
+    ctx.setProgress(1);
+    await download(v.drive_file_id, src, size, ctx, 1, 60);
+    ctx.setProgress(60);
+    out = await rewriteFaststart(ctx, v, src);
+    ctx.setProgress(100);
+  } finally {
+    await rm(src, { force: true });
+    if (out) await rm(out, { force: true });
   }
 }
 
@@ -425,6 +474,7 @@ export const HANDLERS: Record<JobType, (ctx: JobContext) => Promise<void>> = {
   probe,
   thumbnail,
   media,
+  faststart,
   delete_assets: deleteAssets,
 };
 

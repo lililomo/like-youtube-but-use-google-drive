@@ -1,13 +1,14 @@
 import { EventEmitter } from 'node:events';
 import { exec, queryOne, type Db, pool } from '../../db.js';
 
-export type JobType = 'probe' | 'thumbnail' | 'media' | 'delete_assets';
+export type JobType = 'probe' | 'thumbnail' | 'media' | 'faststart' | 'delete_assets';
 export type Lane = 'light' | 'heavy';
 
 const DEFAULTS: Record<JobType, { lane: Lane; priority: number; maxAttempts: number }> = {
   probe: { lane: 'light', priority: 1, maxAttempts: 4 },
   thumbnail: { lane: 'light', priority: 2, maxAttempts: 3 },
   media: { lane: 'heavy', priority: 5, maxAttempts: 3 },
+  faststart: { lane: 'heavy', priority: 4, maxAttempts: 3 },
   delete_assets: { lane: 'light', priority: 8, maxAttempts: 5 },
 };
 

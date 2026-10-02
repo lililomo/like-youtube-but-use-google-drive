@@ -38,6 +38,8 @@ export const SETTING_DEFAULTS = {
   'processing.renditions': [720, 360] as number[],
   'processing.compat_max_height': 1080,
   'processing.storyboard': true,
+  /** File asli MP4/MOV dengan indeks (moov) di akhir dirapikan tanpa encode ulang lalu menimpa file di Drive. */
+  'processing.faststart_original': true,
   'processing.x264_preset': 'veryfast',
   'processing.threads': 3,
   'processing.nice': 15,
