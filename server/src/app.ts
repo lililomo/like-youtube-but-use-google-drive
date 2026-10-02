@@ -16,6 +16,8 @@ import { videoRoutes } from './modules/videos/routes.js';
 import { manageRoutes } from './modules/videos/manage.js';
 import { historyRoutes } from './modules/history/routes.js';
 import { playlistRoutes } from './modules/playlists/routes.js';
+import { uploadRoutes } from './modules/uploads/routes.js';
+import { subtitleManageRoutes } from './modules/subtitles/manage.js';
 import { streamRoutes } from './modules/stream/routes.js';
 import { subtitleRoutes } from './modules/subtitles/routes.js';
 import { processingRoutes } from './modules/processing/routes.js';
@@ -140,6 +142,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(manageRoutes);
   await app.register(historyRoutes);
   await app.register(playlistRoutes);
+  await app.register(uploadRoutes);
+  await app.register(subtitleManageRoutes);
   await app.register(streamRoutes);
   await app.register(subtitleRoutes);
   await app.register(processingRoutes);

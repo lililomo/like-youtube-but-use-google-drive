@@ -741,3 +741,40 @@
 .dv-p-16 {
   padding: 16px;
 }
+
+/* Radio dengan judul + deskripsi (Studio & dialog upload) */
+.dv-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dv-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.dv-radio input {
+  margin: 3px 0 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cta);
+}
+.dv-radio__title {
+  font-weight: 500;
+}
+.dv-radio__desc {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 1.3rem;
+}
+
+.dv-select--sm {
+  height: 32px;
+  padding: 0 8px;
+  font-size: 1.3rem;
+  width: auto;
+}
+.dv-text-error {
+  color: var(--error);
+}

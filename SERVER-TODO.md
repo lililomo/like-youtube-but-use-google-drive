@@ -136,13 +136,33 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** bila `npm ci` gagal karena registry: `npm ci --registry=https://registry.npmmirror.com` (atau sebaliknya `--registry=https://registry.npmjs.org/`).
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-005 — Step 14 (upload): uji upload besar ke Drive asli
+- **Asal:** Step 14 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy
+- **Butuh user:** 🧑 ya — user mengupload file ≥ 1 GB dari browser dan memutus jaringan sebentar di tengah (matikan Wi-Fi ±10 dtk)
+- **Kenapa:** diuji dengan fake Drive (40 MB); perilaku sesi resumable Google asli (308 dengan Range kelipatan 256 KiB, timeout, kuota Drive) dan nginx untuk body besar perlu dibuktikan di produksi.
+- **Langkah (Claude di server):**
+  ```bash
+  grep -n "location ^~ /api/uploads" -A12 /www/server/panel/vhost/rewrite/node_video_dymas.conf   # client_max_body_size 64m, proxy_request_buffering off
+  bash scripts/dev/test-instance.sh start
+  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/upload-test.mjs . && head -c 41943040 /dev/urandom > big.mp4
+  # video kecil apa saja (mis. dari media-src) sebagai argumen pertama
+  CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node upload-test.mjs media-src/Musik/Live/Konser.webm big.mp4   # harus 10/10
+  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+  tail -n 100 /www/server/nodejs/vhost/logs/video_dymas.log | grep -i upload
+  ```
+  Lalu minta user: login sebagai user biasa → Upload file ≥ 1 GB (Privat) → putus Wi-Fi sebentar → upload lanjut → file muncul di folder Drive dengan nama sama → status Memproses → Siap; dari browser lain (tamu) URL video → "Video tidak tersedia".
+- **Verifikasi:** upload-test 10/10; upload user selesai tanpa mulai dari 0; ukuran file di Drive sama; video privat tak terlihat tamu.
+- **Rollback:** tidak ada perubahan konfigurasi server.
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 14–15** — Verifikasi fitur step di https://video.dymas.cloud setelah deploy (upload ≥ 1 GB ke Drive asli, panel admin).
+- **Step 15** — Verifikasi panel admin di https://video.dymas.cloud setelah deploy.
 - **Step 16** — `/etc/logrotate.d/video_dymas` (harian, simpan 14, copytruncate, compress).
 - **Step 16** — Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 (API `bt-api.py` atau UI).
 - **Step 16** — Cek gzip nginx global aaPanel mencakup `application/json`, `text/css`, `application/javascript`, `image/svg+xml`.

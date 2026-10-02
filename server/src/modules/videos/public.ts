@@ -5,6 +5,7 @@ import { sha256Hex } from '../../lib/crypto.js';
 import { notFound } from '../../lib/errors.js';
 import { LruCache } from '../../lib/lru.js';
 import { parse } from '../../lib/validate.js';
+import { requireUser } from '../../plugins/auth.js';
 import { listableSql, type Viewer } from '../../plugins/access.js';
 import { settings } from '../settings/service.js';
 import { channelOf, toSummary, VIDEO_SELECT, type VideoRecord } from './model.js';
@@ -188,6 +189,12 @@ const feedQuery = z.object({
 });
 
 export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
+  /** Semua kategori (folder) termasuk yang kosong — untuk pilihan kategori saat upload/ubah video. */
+  app.get('/api/categories/all', { preHandler: requireUser }, async () => {
+    const cats = await query<CatRow>('SELECT id, parent_id, name, slug, path, depth FROM categories WHERE missing_at IS NULL AND is_hidden = 0 ORDER BY path, id');
+    return { items: cats.map((c) => ({ id: c.id, name: c.name, path: c.path, depth: c.depth })) };
+  });
+
   app.get('/api/categories', async (req) => ({ items: await categoriesWithCounts(req.viewer) }));
 
   app.get('/api/feed', async (req) => {

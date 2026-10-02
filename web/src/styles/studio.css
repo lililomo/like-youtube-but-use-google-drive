@@ -1,0 +1,156 @@
+/* ===== Tabel gaya YouTube Studio "Konten" (Video Anda & admin) ===== */
+.dv-myvideos {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.dv-myvideos__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.dv-myvideos__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--divider);
+}
+.dv-studio-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+  color: var(--text-secondary);
+}
+.dv-studio-search input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.4rem;
+  outline: none;
+}
+.dv-studio-table-wrap {
+  overflow-x: auto;
+}
+.dv-studio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.3rem;
+}
+.dv-studio-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--divider);
+  white-space: nowrap;
+}
+.dv-studio-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--divider);
+  vertical-align: top;
+}
+.dv-studio-table__row:hover {
+  background: var(--hover);
+}
+.dv-studio-table__video {
+  display: flex;
+  gap: 16px;
+  min-width: 380px;
+}
+.dv-studio-table__thumb {
+  width: 120px;
+  flex: none;
+}
+.dv-studio-table__thumb .dv-thumb {
+  border-radius: 4px;
+}
+.dv-studio-table__titlecell {
+  min-width: 0;
+  flex: 1;
+}
+.dv-studio-table__title {
+  font-size: 1.4rem;
+  line-height: 2rem;
+}
+.dv-studio-table__actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  opacity: 0;
+}
+.dv-studio-table__row:hover .dv-studio-table__actions,
+.dv-studio-table__row:focus-within .dv-studio-table__actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .dv-studio-table__actions {
+    opacity: 1;
+  }
+}
+.dv-studio-table__num {
+  white-space: nowrap;
+}
+.dv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.dv-status--ok {
+  color: var(--text);
+}
+.dv-status--error {
+  color: var(--error);
+}
+.dv-status--busy {
+  color: var(--text-secondary);
+}
+.dv-sublist {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.dv-sublist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.dv-sublist li span:first-child {
+  flex: 1;
+}
+.dv-chip-tag {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--chip-bg);
+  font-size: 1.2rem;
+}
+.dv-subform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.dv-subform select {
+  width: auto;
+}
+.dv-subform__hint {
+  margin-top: 8px;
+  font-size: 1.2rem;
+}
+@media (max-width: 656px) {
+  .dv-myvideos {
+    padding: 12px;
+  }
+}

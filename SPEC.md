@@ -910,7 +910,8 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/subtitles/:id.vtt` | sesuai §13 | WebVTT |
 | GET `/api/channels/:handle` | publik | channel + `?tab=videos|playlists&cursor=` |
 | GET `/api/me/videos` | login | `?q=&visibility=&status=&cursor=` (Video Anda; semua status) |
-| POST `/api/uploads` · PUT/GET/DELETE `/api/uploads/:id` | login | §11 |
+| POST `/api/uploads` · PUT/GET/DELETE `/api/uploads/:id` · GET `/api/uploads` | login | §11; `GET /api/uploads` = upload saya yang belum selesai (lanjut setelah reload) |
+| GET `/api/categories/all` | login | semua kategori (termasuk kosong) dengan `id` untuk pilihan upload/ubah kategori |
 | GET `/api/playlists/mine` | user/tamu | `{items, guestCount, guestAllowed}` — `guestCount` = playlist tamu di perangkat ini (tawaran impor setelah login) |
 | GET `/api/playlists/public` | publik | `?cursor=` |
 | POST `/api/playlists` | user/tamu | `{title, visibility?, videoId?}` |

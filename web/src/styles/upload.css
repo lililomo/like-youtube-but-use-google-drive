@@ -1,0 +1,206 @@
+/* ===== Dialog upload & panel UploadManager (SPEC §11 klien) ===== */
+.dv-upload-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 16px;
+  border: 2px dashed transparent;
+  border-radius: 12px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dv-upload-drop.is-over {
+  border-color: var(--cta);
+  background: var(--cta-hover-bg);
+}
+.dv-upload-drop__icon {
+  width: 136px;
+  height: 136px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.dv-upload-drop__title {
+  font-size: 1.5rem;
+  line-height: 2.4rem;
+}
+.dv-upload-drop__sub,
+.dv-upload-drop__hint {
+  font-size: 1.3rem;
+  color: var(--text-secondary);
+  max-width: 420px;
+}
+.dv-upload-drop__hint {
+  margin-top: 16px;
+  font-size: 1.2rem;
+}
+.dv-upload-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+}
+.dv-upload-details__files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.dv-upload-file {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+}
+.dv-upload-file__body {
+  flex: 1;
+  min-width: 0;
+}
+.dv-upload-file__name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-upload-file__meta {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+.dv-upload-file__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+.dv-upload-file__sub input[type='file'] {
+  max-width: 220px;
+  font-size: 1.2rem;
+}
+.dv-upload-details__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dv-upload-details__heading {
+  font-size: 1.6rem;
+  font-weight: 500;
+}
+.dv-upload-details__note {
+  font-size: 1.2rem;
+}
+@media (max-width: 700px) {
+  .dv-upload-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dv-uppanel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  width: min(400px, calc(100vw - 32px));
+  border-radius: 12px;
+  background: var(--bg-raised);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.dv-uppanel__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 16px;
+  background: #282828;
+  color: #fff;
+}
+.dv-uppanel__head .dv-icon-btn {
+  color: #fff;
+}
+.dv-uppanel__title {
+  flex: 1;
+  font-weight: 500;
+  font-size: 1.4rem;
+}
+.dv-uppanel__list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.dv-upitem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px 10px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+.dv-upitem:last-child {
+  border-bottom: 0;
+}
+.dv-upitem__icon {
+  flex: none;
+  color: var(--text-secondary);
+}
+.dv-upitem.is-done .dv-upitem__icon {
+  color: var(--success);
+}
+.dv-upitem.is-error .dv-upitem__icon {
+  color: var(--error);
+}
+.dv-upitem__body {
+  flex: 1;
+  min-width: 0;
+}
+.dv-upitem__name {
+  font-size: 1.4rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-upitem__status {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+.dv-upitem.is-error .dv-upitem__status {
+  color: var(--error);
+}
+.dv-upitem__bar {
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.dv-upitem__bar > div {
+  height: 100%;
+  background: var(--cta);
+  transition: width 0.3s linear;
+}
+.dv-upitem.is-paused .dv-upitem__bar > div,
+.dv-upitem.is-needs-file .dv-upitem__bar > div,
+.dv-upitem.is-retrying .dv-upitem__bar > div {
+  background: var(--text-secondary);
+}
+.dv-upitem__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+@media (max-width: 656px) {
+  .dv-uppanel {
+    right: 16px;
+    bottom: 64px;
+  }
+}

@@ -228,30 +228,6 @@
   overflow-x: auto;
   white-space: nowrap;
 }
-.dv-radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.dv-radio {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
-}
-.dv-radio input {
-  margin: 3px 0 0;
-  width: 18px;
-  height: 18px;
-  accent-color: var(--cta);
-}
-.dv-radio__title {
-  font-weight: 500;
-}
-.dv-radio__desc {
-  color: var(--text-secondary);
-  font-size: 1.3rem;
-}
 .dv-details summary {
   cursor: pointer;
   font-weight: 500;

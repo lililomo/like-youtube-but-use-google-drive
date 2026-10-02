@@ -9,6 +9,7 @@ import { Icon } from '../icons/Icon';
 import { AccountMenu, LoginButton } from './AccountMenu';
 import { Logo } from './Logo';
 import { SearchBox } from './SearchBox';
+import { useUploads } from '../../stores/uploads';
 
 /** Bar atas 56px (mobile 48px) ala YouTube. */
 export function Masthead({ onMenu }: { onMenu: () => void }) {
@@ -28,6 +29,7 @@ export function Masthead({ onMenu }: { onMenu: () => void }) {
   }
 
   const canUpload = Boolean(user) && site.uploadEnabled;
+  const openUpload = useUploads((st) => st.openDialog);
 
   return (
     <header className={`dv-masthead${mobile ? ' dv-masthead--mobile' : ''}`}>
@@ -43,12 +45,12 @@ export function Masthead({ onMenu }: { onMenu: () => void }) {
       <div className="dv-masthead__end">
         {mobile && <IconButton icon="search" label={t.search.placeholder} onClick={() => setMobileSearch(true)} />}
         {canUpload && !mobile && (
-          <button type="button" className="dv-create-btn" onClick={() => navigate('/my/videos?upload=1')}>
+          <button type="button" className="dv-create-btn" onClick={openUpload}>
             <Icon name="add" />
             <span>{t.nav.upload}</span>
           </button>
         )}
-        {canUpload && mobile && <IconButton icon="upload-outline" label={t.nav.upload} onClick={() => navigate('/my/videos?upload=1')} />}
+        {canUpload && mobile && <IconButton icon="upload-outline" label={t.nav.upload} onClick={openUpload} />}
         {!loaded ? (
           <span className="dv-masthead__avatar-skeleton" />
         ) : user ? (

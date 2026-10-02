@@ -11,8 +11,9 @@ import { DriveError, getFile, trashFile, updateFile } from '../drive/client.js';
 import { enqueueJob } from '../processing/queue.js';
 import { settings } from '../settings/service.js';
 import { invalidateStreamCache } from '../stream/routes.js';
-import { buildDetail, findVideo, type VideoRecord } from './model.js';
+import { VIDEO_SELECT, buildDetail, findVideo, toSummary, type VideoRecord } from './model.js';
 import { unavailable } from './routes.js';
+import { escapeLike } from './search.js';
 
 /** Judul: 1–100 karakter (batas YouTube), tanpa karakter kontrol; spasi dirapikan. */
 export const titleSchema = z
@@ -142,7 +143,74 @@ export async function deleteVideo(req: FastifyRequest, publicId: string): Promis
   await audit(req, 'video.delete', { type: 'video', id: v.public_id }, { title: v.title });
 }
 
+const myVideosQuery = z.object({
+  q: z.string().trim().max(100).optional(),
+  visibility: z.enum(['public', 'private']).optional(),
+  status: z.enum(['ready', 'processing', 'failed']).optional(),
+  cursor: z.coerce.number().int().min(0).max(100_000).optional(),
+});
+const MY_PAGE = 30;
+
+/** Ringkasan video untuk tabel Studio (Video Anda & admin): status proses, progres job, ukuran, jumlah subtitle. */
+export async function studioRows(rows: VideoRecord[], viewer: Viewer) {
+  const ids = rows.map((r) => r.id);
+  const progress = new Map<number, number>();
+  const subs = new Map<number, number>();
+  if (ids.length) {
+    for (const r of await query<{ video_id: number; p: number }>(
+      "SELECT video_id, MAX(progress) AS p FROM jobs WHERE video_id IN (?) AND status = 'running' GROUP BY video_id",
+      [ids],
+    )) progress.set(r.video_id, Number(r.p));
+    for (const r of await query<{ video_id: number; n: number }>('SELECT video_id, COUNT(*) AS n FROM subtitles WHERE video_id IN (?) GROUP BY video_id', [ids]))
+      subs.set(r.video_id, Number(r.n));
+  }
+  return rows.map((r) => ({
+    ...toSummary(r, { ...viewer, role: 'admin' }),
+    status: r.status,
+    processingError: r.processing_error,
+    processingProgress: progress.get(r.id) ?? null,
+    sizeBytes: Number(r.size_bytes),
+    subtitleCount: subs.get(r.id) ?? 0,
+    source: r.source,
+    ownerId: r.owner_user_id,
+    categoryId: r.category_id,
+  }));
+}
+
 export async function manageRoutes(app: FastifyInstance): Promise<void> {
+  /** Video Anda (semua status, tanpa yang dihapus). */
+  app.get('/api/me/videos', { preHandler: requireUser }, async (req, reply) => {
+    const q = parse(myVideosQuery, req.query);
+    const where = ['v.owner_user_id = ?', 'v.deleted_at IS NULL'];
+    const params: unknown[] = [req.viewer.userId];
+    if (q.q) {
+      where.push('v.search_text LIKE ?');
+      params.push(`%${escapeLike(q.q.toLowerCase())}%`);
+    }
+    if (q.visibility) {
+      where.push('v.visibility = ?');
+      params.push(q.visibility);
+    }
+    if (q.status === 'processing') where.push("v.status IN ('pending','processing')");
+    else if (q.status) {
+      where.push('v.status = ?');
+      params.push(q.status);
+    }
+    const offset = q.cursor ?? 0;
+    const rows = await query<VideoRecord>(`${VIDEO_SELECT} WHERE ${where.join(' AND ')} ORDER BY v.published_at DESC, v.id DESC LIMIT ? OFFSET ?`, [
+      ...params,
+      MY_PAGE + 1,
+      offset,
+    ]);
+    const total = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM videos v WHERE ${where.join(' AND ')}`, params);
+    reply.header('Cache-Control', 'private, no-store');
+    return {
+      items: await studioRows(rows.slice(0, MY_PAGE), req.viewer),
+      total: Number(total?.n ?? 0),
+      nextCursor: rows.length > MY_PAGE ? String(offset + MY_PAGE) : null,
+    };
+  });
+
   app.patch<{ Params: { id: string } }>('/api/videos/:id', { preHandler: requireUser }, async (req) => {
     const body = parse(patchBody, req.body);
     return patchVideo(req, req.params.id, body);

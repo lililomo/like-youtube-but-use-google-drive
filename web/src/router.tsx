@@ -1,13 +1,11 @@
 import { createBrowserRouter } from 'react-router';
 import { RequireAuth } from './components/RequireAuth';
 import { AppLayout, BareLayout, RootLayout, WatchLayout } from './components/layout/Layouts';
-import { t } from './i18n/id';
 import { AccountPage } from './pages/Account';
 import { ChannelPage } from './pages/Channel';
 import { HomePage } from './pages/Home';
 import { LoginPage } from './pages/Login';
 import { NotFoundPage } from './pages/NotFound';
-import { PlaceholderPage } from './pages/Placeholder';
 import { ResultsPage } from './pages/Results';
 import { HistoryPage } from './pages/History';
 import { YouPage } from './pages/You';
@@ -29,11 +27,14 @@ export const router = createBrowserRouter([
           { path: 'feed/history', element: <HistoryPage /> },
           {
             path: 'my/videos',
-            element: (
-              <RequireAuth>
-                <PlaceholderPage title={t.nav.yourVideos} icon="your-videos" />
-              </RequireAuth>
-            ),
+            lazy: () =>
+              import('./pages/MyVideos').then((m) => ({
+                Component: () => (
+                  <RequireAuth>
+                    <m.MyVideosPage />
+                  </RequireAuth>
+                ),
+              })),
           },
           {
             path: 'account',

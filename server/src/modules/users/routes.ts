@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { exec, query, queryOne, tx } from '../../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { avatarUrl, removePublic } from '../../lib/images.js';
+import { trashFile, updateFile } from '../drive/client.js';
+import { enqueueJob } from '../processing/queue.js';
+import { invalidateStreamCache } from '../stream/routes.js';
 import { MIN_PASSWORD_LENGTH, hashPassword } from '../../lib/password.js';
 import { parse } from '../../lib/validate.js';
 import { requireAdmin } from '../../plugins/auth.js';
@@ -194,7 +197,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       throw forbidden('Harus ada minimal satu admin aktif');
     }
 
-    // Penghapusan/peralihan file di Google Drive disambungkan di Step 14 (SPEC §11).
+    // File di Google Drive: delete → ke Trash; transfer → appProperties dvOwner dihapus (best effort, setelah DB).
+    const owned = await query<{ id: number; public_id: string; drive_file_id: string }>(
+      'SELECT id, public_id, drive_file_id FROM videos WHERE owner_user_id = ? AND deleted_at IS NULL',
+      [id],
+    );
     const affected = await tx(async (conn) => {
       let n = 0;
       if (body.videos === 'transfer') {
@@ -213,6 +220,17 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return n;
     });
     await removePublic('avatars', `${id}-`);
+    for (const v of owned) {
+      if (body.videos === 'delete') {
+        trashFile(v.drive_file_id).catch((err) => req.log.warn({ err, video: v.public_id }, 'gagal memindahkan video ke Trash Drive'));
+        invalidateStreamCache(v.public_id);
+        await enqueueJob('delete_assets', { videoId: v.id, payload: { mode: 'all', publicId: v.public_id } });
+      } else {
+        updateFile(v.drive_file_id, { appProperties: { dvOwner: null } }).catch((err) =>
+          req.log.warn({ err, video: v.public_id }, 'gagal memperbarui appProperties pemilik'),
+        );
+      }
+    }
     await audit(req, 'user.delete', { type: 'user', id }, { username: target.username, videos: body.videos, affected });
     return { ok: true, videosAffected: affected };
   });

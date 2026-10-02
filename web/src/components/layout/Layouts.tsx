@@ -9,6 +9,7 @@ import { Guide, GuideDrawer, MiniGuide, MobileNav } from './Guide';
 import { Masthead } from './Masthead';
 import { TopProgress } from './TopProgress';
 import { GuestImportPrompt } from '../playlist/GuestImportPrompt';
+import { UploadPanel } from '../upload/UploadPanel';
 
 /** Root: memuat sesi & efek situs, menampilkan snackbar global. */
 export function RootLayout() {
@@ -22,6 +23,7 @@ export function RootLayout() {
       <TopProgress />
       <Outlet />
       <GuestImportPrompt />
+      <UploadPanel />
       <Snackbar />
       <ScrollRestoration />
     </>
