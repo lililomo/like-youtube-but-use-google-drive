@@ -283,3 +283,108 @@
 .dv-link:hover {
   text-decoration: underline;
 }
+
+/* ===== Tabel Studio ===== */
+.dv-table-wrap {
+  overflow-x: auto;
+  background: var(--studio-sidebar);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+}
+.dv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.3rem;
+}
+.dv-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+  white-space: nowrap;
+}
+.dv-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+  vertical-align: top;
+}
+.dv-table tr:last-child td {
+  border-bottom: 0;
+}
+.dv-table tbody tr:hover {
+  background: var(--hover);
+}
+.dv-table__primary {
+  font-weight: 500;
+}
+.dv-table__title {
+  max-width: 320px;
+}
+.dv-table__error {
+  margin-top: 4px;
+  color: var(--error);
+  font-size: 1.2rem;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-table__actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.dv-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  font-weight: 500;
+  background: var(--chip-bg);
+}
+.dv-pill--running {
+  background: color-mix(in srgb, var(--cta) 20%, transparent);
+  color: var(--cta);
+}
+.dv-pill--failed {
+  background: color-mix(in srgb, var(--error) 18%, transparent);
+  color: var(--error);
+}
+.dv-pill--done {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+}
+.dv-progress {
+  margin-top: 6px;
+  height: 4px;
+  width: 140px;
+  background: var(--chip-bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.dv-progress__bar {
+  height: 100%;
+  background: var(--cta);
+  transition: width 0.3s;
+}
+.dv-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.dv-stat {
+  min-width: 140px;
+  padding: 16px 20px;
+  background: var(--studio-sidebar);
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+}
+.dv-stat__value {
+  font-size: 2.8rem;
+  line-height: 3.6rem;
+  font-weight: 500;
+}
+.dv-stat__label {
+  color: var(--text-secondary);
+}

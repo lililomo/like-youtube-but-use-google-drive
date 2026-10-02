@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { closeDb } from './db.js';
 import { startMaintenance } from './modules/maintenance/tasks.js';
 import { startSyncScheduler, stopSyncScheduler } from './modules/sync/service.js';
+import { startWorker, stopWorker } from './modules/processing/worker.js';
 
 const app = await buildApp();
 
@@ -15,6 +16,7 @@ async function shutdown(signal: string): Promise<void> {
   force.unref();
   try {
     stopSyncScheduler();
+    await stopWorker();
     await app.close();
     await closeDb();
   } finally {
@@ -36,6 +38,9 @@ try {
   process.exit(1);
 }
 
+if (!config.DISABLE_WORKER) {
+  await startWorker(app.log.child({ mod: 'worker' }));
+}
 if (!config.DISABLE_SCHEDULER) {
   startSyncScheduler(app.log.child({ mod: 'sync' }));
   startMaintenance(app.log.child({ mod: 'maintenance' }));

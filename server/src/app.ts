@@ -15,6 +15,7 @@ import { syncRoutes } from './modules/sync/routes.js';
 import { videoRoutes } from './modules/videos/routes.js';
 import { streamRoutes } from './modules/stream/routes.js';
 import { subtitleRoutes } from './modules/subtitles/routes.js';
+import { processingRoutes } from './modules/processing/routes.js';
 import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
 import { userRoutes } from './modules/users/routes.js';
@@ -129,6 +130,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(videoRoutes);
   await app.register(streamRoutes);
   await app.register(subtitleRoutes);
+  await app.register(processingRoutes);
 
   // Produksi: /media disajikan nginx. Instance uji (SERVE_STATIC=1): disajikan Node.
   if (config.SERVE_STATIC) {
