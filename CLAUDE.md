@@ -20,7 +20,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 0 — Persiapan server (ffmpeg, bt-api.py, DB `dummy`, git) — 2026-10-02
 - [x] Step 1 — Kerangka proyek, Node Project aaPanel, nginx custom, SSL — 2026-10-02
 - [x] Step 2 — Database, migrasi, settings, kriptografi — 2026-10-02
-- [ ] Step 3 — Auth, sesi, CSRF, tamu, manajemen user
+- [x] Step 3 — Auth, sesi, CSRF, tamu, manajemen user — 2026-10-02
 - [ ] Step 4 — Fondasi frontend & design system YouTube
 - [ ] Step 5 — Integrasi Google Drive (🧑 user membuat kredensial)
 - [ ] Step 6 — Sinkronisasi folder
@@ -68,6 +68,8 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Database aplikasi | 15 tabel dari `server/migrations/001_init.sql` (users, sessions, categories, videos, video_renditions, subtitles, playlists, playlist_items, watch_history, jobs, uploads, settings, oauth_states, audit_logs, schema_migrations); semua `utf8mb4_unicode_ci`; waktu UTC (`SET time_zone='+00:00'` per koneksi, mysql2 `timezone:'Z'`). Koneksi app via socket `/tmp/mysql.sock` (DB_HOST=localhost + DB_SOCKET) |
 | Admin awal | dibuat seeder 2026-10-02 (user id 1, argon2id m=19456,t=2,p=1) |
 | Settings | tabel `settings` (JSON); rahasia (`drive.oauth_client_secret`, `drive.oauth_refresh_token`, `drive.service_account_json`) AES-256-GCM `v1:` dengan kunci HKDF(APP_KEY,"dv-enc"); default di `server/src/modules/settings/service.ts` |
+| Auth | Cookie `dv_sid` (HttpOnly, Secure, Lax; 30 hari bila "Ingat saya", kalau tidak cookie sesi + 24 jam sliding), `dv_csrf` (dibaca JS, dikirim di header `X-CSRF-Token` untuk semua non-GET `/api/*`; Origin harus `https://video.dymas.cloud`), `dv_gid` (tamu, 400 hari). Login rate-limit in-memory 10 gagal/15 menit per IP **dan** per username (reset saat restart). Rate-limit global `/api/*` 600/menit/IP |
+| Header keamanan | Helmet: CSP (SPEC §12), nosniff, X-Frame SAMEORIGIN, Referrer-Policy, **HSTS dari aplikasi** (max-age 1 th) — HSTS di vhost aaPanel tidak terkirim karena `add_header` di `location /` menimpanya |
 | Static web | `web/dist` — `/assets/*` disajikan nginx (immutable 1 th); `index.html` & SPA fallback oleh Fastify (`no-cache`) |
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
@@ -109,9 +111,14 @@ Nginx custom: edit `scripts/nginx-custom.conf` → `cp scripts/nginx-custom.conf
 
 ## Keputusan
 Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama eksekusi dicatat di sini dengan tanggal & alasan.
+- 2026-10-02 — Versi paket dipatok ke major yang sesuai SPEC (TS 5.9, Vite 7, react-router 7, vitest 3) walau npm sudah punya TS 7/Vite 8/react-router 8 — demi stabilitas.
+- 2026-10-02 — Drive API diakses via REST (undici) + `google-auth-library` untuk token; `@googleapis/drive` tidak dipakai (lebih ringan & kontrol penuh atas streaming/resumable).
+- 2026-10-02 — Hapus user dengan opsi `delete`: untuk sementara video ditandai `missing` + `deleted_at` di DB; trash file di Drive disambungkan di Step 14.
+- 2026-10-02 — Limiter login per-username bisa dipakai pihak lain untuk mengunci akun selama 15 menit (trade-off SPEC). Darurat: restart aplikasi (`SKIP_BUILD=1 bash scripts/deploy.sh`) mengosongkan limiter.
 
 ## Changelog
 - 2026-10-02 — Analisis server; dibuat PRD.md, SPEC.md, PROMPT.md, CLAUDE.md. Belum ada kode.
 - 2026-10-02 — Step 0: ffmpeg 4.4.2 dipasang (apt); `scripts/bt-api.py` dibuat & teruji; DB `dummy` dibuat via aaPanel API; git lokal diinisialisasi (branch main, tanpa remote).
 - 2026-10-02 — Step 1: monorepo server (Fastify 5/TS) + web (Vite 7/React 19); `/api/health`; SPA fallback; `.env`; `scripts/deploy.sh`; Node Project aaPanel `video_dymas` (id 30, port 3210); nginx custom terpasang di rewrite include; SSL Let's Encrypt + Force HTTPS.
 - 2026-10-02 — Step 2: db.ts (pool mysql2), migrasi 001_init + runner, seeder admin, lib crypto/ids/password/errors, SettingsService (cache + enkripsi rahasia), `/api/health` cek DB; 13 unit test lulus.
+- 2026-10-02 — Step 3: plugin auth (sesi/CSRF/tamu), login/logout/me/password/PATCH me, API admin users (CRUD, reset password, proteksi admin terakhir & diri sendiri), audit log + `GET /api/admin/audit`, aturan akses `plugins/access.ts`, helmet+CSP+HSTS, rate-limit; 37 unit test lulus; diuji end-to-end via curl.

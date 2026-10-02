@@ -1,13 +1,20 @@
+import fastifyCookie from '@fastify/cookie';
+import fastifyHelmet from '@fastify/helmet';
+import fastifyRateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { APP_VERSION, config, isProd } from './config.js';
 import { pingDb } from './db.js';
 import { AppError, errorBody } from './lib/errors.js';
+import { auditRoutes } from './modules/audit/service.js';
+import { authRoutes } from './modules/auth/routes.js';
 import { settings } from './modules/settings/service.js';
+import { userRoutes } from './modules/users/routes.js';
+import { registerAuth } from './plugins/auth.js';
 import { registerSpa } from './plugins/spa.js';
 
 const startedAt = Date.now();
 
-/** Sembunyikan signature stream (?s=) dari log. */
+/** Sembunyikan signature stream & parameter OAuth dari log. */
 function redactUrl(url: string | undefined): string | undefined {
   return url?.replace(/([?&](?:s|code|state)=)[^&]+/g, '$1***');
 }
@@ -35,7 +42,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     trustProxy: config.TRUST_PROXY,
     bodyLimit: 1024 * 1024,
     requestIdHeader: false,
-    disableRequestLogging: false,
   });
 
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {
@@ -50,14 +56,52 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (status === 429) {
       return reply.code(429).send(errorBody('TOO_MANY_REQUESTS', 'Terlalu banyak permintaan, coba lagi nanti'));
     }
+    if (status === 413) {
+      return reply.code(413).send(errorBody('PAYLOAD_TOO_LARGE', 'Ukuran data terlalu besar'));
+    }
     const message = status >= 500 && isProd ? 'Terjadi kesalahan pada server' : err.message;
     return reply.code(status).send(errorBody(status >= 500 ? 'INTERNAL' : 'ERROR', message));
   });
 
   await settings.load();
 
-  app.get('/api/health', async (_req, reply) => {
+  await app.register(fastifyCookie);
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        mediaSrc: ["'self'", 'blob:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'", 'https://accounts.google.com'],
+      },
+    },
+    // add_header HSTS aaPanel tertimpa add_header di location / → kirim dari aplikasi.
+    hsts: { maxAge: 31536000, includeSubDomains: false },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  });
+  await app.register(fastifyRateLimit, {
+    global: true,
+    max: 600,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => req.ip,
+    allowList: (req) => !req.url.startsWith('/api/'),
+  });
+
+  await registerAuth(app);
+
+  app.get('/api/health', { config: { rateLimit: false } }, async (_req, reply) => {
     const db = await pingDb();
+    reply.header('Cache-Control', 'no-store');
     return reply.code(db ? 200 : 503).send({
       ok: db,
       db,
@@ -65,6 +109,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       uptime: Math.round((Date.now() - startedAt) / 1000),
     });
   });
+
+  await app.register(authRoutes);
+  await app.register(userRoutes);
+  await app.register(auditRoutes);
 
   await registerSpa(app, { distDir: config.WEB_DIST_DIR });
 
