@@ -49,8 +49,18 @@ export function canEditPlaylist(p: PlaylistAccessFields, viewer: Viewer): boolea
 }
 
 /**
- * Fragmen SQL untuk SEMUA daftar publik (beranda, cari, rekomendasi, channel, playlist).
- * Admin pun memakai fragmen yang sama di halaman publik; admin melihat semuanya di /admin.
+ * Daftar penemuan (beranda, kategori, cari, saran, rekomendasi, halaman channel): HANYA video publik, untuk siapa pun —
+ * termasuk pemilik & admin (seperti YouTube). Video privat hanya muncul di "Video Anda" pemiliknya, playlist milik
+ * pemiliknya, dan Panel Admin → Video; tetap bisa ditonton lewat link oleh pemilik & admin (canWatch).
+ * Tanpa OR agar index idx_list (deleted_at, status, visibility, published_at) dipakai untuk urutan (tanpa filesort).
+ */
+export function discoverableSql(alias = 'v'): [string, unknown[]] {
+  return [`${alias}.deleted_at IS NULL AND ${alias}.status = 'ready' AND ${alias}.visibility = 'public'`, []];
+}
+
+/**
+ * Isi playlist (milik siapa pun) untuk viewer: video publik + video privat MILIK viewer sendiri.
+ * Admin tidak melihat video privat orang lain di playlist (kelola lewat /admin).
  * @param alias alias tabel videos
  * @returns [sql, params]
  */

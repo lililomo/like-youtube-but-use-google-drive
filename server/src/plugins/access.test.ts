@@ -5,6 +5,7 @@ import {
   canEditVideo,
   canViewPlaylist,
   canWatch,
+  discoverableSql,
   listableSql,
   type PlaylistAccessFields,
   type VideoAccessFields,
@@ -114,6 +115,16 @@ describe('listableSql', () => {
     expect(params).toEqual([]);
     expect(listableSql(owner, 'x')[0]).toContain('x.owner_user_id = ?');
     expect(listableSql(owner)[1]).toEqual([10]);
+  });
+});
+
+describe('discoverableSql', () => {
+  it('hanya publik untuk semua (pemilik & admin pun tidak melihat video privat di beranda/cari/channel)', () => {
+    const [sql, params] = discoverableSql();
+    expect(sql).toBe("v.deleted_at IS NULL AND v.status = 'ready' AND v.visibility = 'public'");
+    expect(sql).not.toContain('owner_user_id');
+    expect(params).toEqual([]);
+    expect(discoverableSql('x')[0]).toContain("x.visibility = 'public'");
   });
 });
 

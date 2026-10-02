@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { driveFileName } from './service.js';
-import { parseYoutubeId, splitLinks } from './url.js';
-import { explainYtdlpError, summarizeInfo, YtPermanentError } from './ytdlp.js';
+import { parseYoutubeId, parseYoutubeLink, splitLinks, unsupportedPlaylistReason } from './url.js';
+import { explainYtdlpError, summarizeInfo, summarizePlaylist, YtPermanentError } from './ytdlp.js';
 
 describe('parseYoutubeId', () => {
   it.each([
@@ -28,6 +28,25 @@ describe('parseYoutubeId', () => {
 
   it('memecah banyak link', () => {
     expect(splitLinks(' https://youtu.be/a1\n\nhttps://youtu.be/b2 , c3\t')).toEqual(['https://youtu.be/a1', 'https://youtu.be/b2', 'c3']);
+  });
+});
+
+describe('parseYoutubeLink (playlist)', () => {
+  it.each([
+    ['https://www.youtube.com/watch?v=tZYV48dk_6M&list=PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI', 'tZYV48dk_6M', 'PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI'],
+    ['https://www.youtube.com/playlist?list=PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI', null, 'PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI'],
+    ['https://youtu.be/tZYV48dk_6M?list=PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI', 'tZYV48dk_6M', 'PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI'],
+    ['https://music.youtube.com/playlist?list=OLAK5uy_kQqk1Zv7Q6y9p4f3m2Xc8bT0aBcDeFgHi', null, 'OLAK5uy_kQqk1Zv7Q6y9p4f3m2Xc8bT0aBcDeFgHi'],
+    ['PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI', null, 'PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI'],
+    ['https://www.youtube.com/watch?v=tZYV48dk_6M', 'tZYV48dk_6M', null],
+  ])('%s', (input, videoId, playlistId) => expect(parseYoutubeLink(input)).toEqual({ videoId, playlistId }));
+
+  it('menolak host lain & playlist tak didukung', () => {
+    expect(parseYoutubeLink('https://evil.example/playlist?list=PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI')).toBeNull();
+    expect(parseYoutubeLink('https://www.youtube.com/playlist?list=x')).toBeNull();
+    expect(unsupportedPlaylistReason('RDtZYV48dk_6M')).toContain('Mix');
+    expect(unsupportedPlaylistReason('WL')).toContain('login');
+    expect(unsupportedPlaylistReason('PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI')).toBeNull();
   });
 });
 
@@ -61,6 +80,30 @@ describe('ytdlp helpers', () => {
     const temp = explainYtdlpError('ERROR: unable to download video data: HTTP Error 503: Service Unavailable');
     expect(temp).not.toBeInstanceOf(YtPermanentError);
     expect(temp.message).toContain('HTTP Error 503');
+  });
+
+  it('ringkasan playlist: entri privat/dihapus ditandai, ID tidak valid dibuang', () => {
+    const pl = summarizePlaylist({
+      id: 'PL0Es4f51CsxwO0Rcgx4Zs5c1qKJG6tWjI',
+      title: ' Membantu Teman ',
+      channel: 'Bing',
+      entries: [
+        { id: 'tZYV48dk_6M', title: 'Atchoo!', duration: 443.2 },
+        { id: '59QG9DOW64k', title: '[Private video]' },
+        { id: 'dX3CWTOSO2I', title: '[Deleted video]' },
+        { id: 'Rdu9qi5EcVM', title: 'Menginap', availability: 'subscriber_only' },
+        null,
+        { id: 'bad' },
+      ],
+    });
+    expect(pl.title).toBe('Membantu Teman');
+    expect(pl.entries.map((e) => [e.id, e.unavailable])).toEqual([
+      ['tZYV48dk_6M', null],
+      ['59QG9DOW64k', 'Video privat di YouTube'],
+      ['dX3CWTOSO2I', 'Video sudah dihapus di YouTube'],
+      ['Rdu9qi5EcVM', 'Butuh login/khusus anggota'],
+    ]);
+    expect(pl.entries[0]!.durationSec).toBe(443);
   });
 
   it('nama file Drive dari judul', () => {

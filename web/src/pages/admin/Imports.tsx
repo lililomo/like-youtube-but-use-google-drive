@@ -15,6 +15,7 @@ interface ImportItem {
   id: number;
   url: string;
   ytId: string;
+  playlist: { id: string; title: string | null; index: number | null } | null;
   title: string | null;
   channel: string | null;
   durationSec: number | null;
@@ -38,6 +39,7 @@ interface ImportsResponse {
   nextCursor: string | null;
   summary: Record<'queued' | 'running' | 'done' | 'failed' | 'cancelled', number>;
   maxHeight: number;
+  maxPlaylistItems: number;
 }
 
 interface CategoryOption {
@@ -64,19 +66,27 @@ const PILL: Record<Status, string> = {
 };
 const VIDEO_STATUS: Record<string, string> = { pending: 'menunggu diproses', processing: 'diproses', ready: 'siap ditonton', failed: 'gagal diproses' };
 
-function AddForm({ maxHeight }: { maxHeight: number }) {
+interface AddResult {
+  added: number;
+  skipped: { input: string; reason: string }[];
+  playlists: { id: string; title: string; total: number; added: number }[];
+}
+
+function AddForm({ maxHeight, maxPlaylistItems }: { maxHeight: number; maxPlaylistItems: number }) {
   const qc = useQueryClient();
   const [urls, setUrls] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [playlistMode, setPlaylistMode] = useState<'all' | 'video'>('all');
+  const [result, setResult] = useState<AddResult | null>(null);
   const cats = useQuery({ queryKey: ['categories', 'all'], queryFn: () => apiGet<{ items: CategoryOption[] }>('/categories/all'), staleTime: 60_000 });
   const add = useMutation({
-    mutationFn: () => apiPost<{ added: number; skipped: { input: string; reason: string }[] }>('/admin/imports', { urls, visibility, categoryId }),
+    mutationFn: () => apiPost<AddResult>('/admin/imports', { urls, visibility, categoryId, playlistMode }),
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['admin', 'imports'] });
-      const skip = res.skipped.length ? ` · ${res.skipped.length} dilewati (${res.skipped.map((s) => `${s.input.slice(0, 40)}: ${s.reason}`).join('; ')})` : '';
-      toast(`${res.added} video masuk antrean${skip}`);
-      if (res.added) setUrls(res.skipped.map((s) => s.input).join('\n'));
+      toast(`${res.added} video masuk antrean${res.skipped.length ? ` · ${res.skipped.length} dilewati` : ''}`);
+      setResult(res);
+      if (res.added) setUrls('');
     },
     onError: (e) => toast(errorMessage(e)),
   });
@@ -99,7 +109,7 @@ function AddForm({ maxHeight }: { maxHeight: number }) {
           rows={6}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
-          placeholder={'Tempel link YouTube, satu per baris\nhttps://www.youtube.com/watch?v=…\nhttps://youtu.be/…\nhttps://www.youtube.com/shorts/…'}
+          placeholder={'Tempel link video atau playlist YouTube, satu per baris\nhttps://www.youtube.com/watch?v=…\nhttps://youtu.be/…\nhttps://www.youtube.com/playlist?list=…'}
           aria-label="Link YouTube"
           spellCheck={false}
         />
@@ -123,10 +133,49 @@ function AddForm({ maxHeight }: { maxHeight: number }) {
               </option>
             ))}
           </select>
+          <select
+            className="dv-select"
+            style={{ width: 300 }}
+            value={playlistMode}
+            onChange={(e) => setPlaylistMode(e.target.value as 'all' | 'video')}
+            aria-label="Link berisi playlist"
+            title="Untuk link video yang juga berisi playlist (…watch?v=…&list=…)"
+          >
+            <option value="all">Link berisi playlist: unduh semua</option>
+            <option value="video">Link berisi playlist: video itu saja</option>
+          </select>
           <Button type="submit" variant="primary" disabled={!count || add.isPending}>
             {add.isPending ? 'Menambahkan…' : count > 1 ? `Tambah ${count} link ke antrean` : 'Tambah ke antrean'}
           </Button>
         </div>
+        <p className="dv-text-secondary" style={{ fontSize: '1.2rem', margin: 0 }}>
+          Playlist dibuka otomatis (maksimal {maxPlaylistItems} video per playlist) dan diunduh sesuai urutannya. Mix/Radio YouTube dan playlist pribadi
+          (Tonton Nanti/Disukai) tidak didukung.
+        </p>
+        {result && (result.playlists.length > 0 || result.skipped.length > 0) && (
+          <div className="dv-banner dv-banner--info dv-import-result">
+            {result.playlists.map((p) => (
+              <div key={p.id}>
+                Playlist <strong>{p.title}</strong>: {p.added} dari {p.total} video masuk antrean
+              </div>
+            ))}
+            {result.skipped.length > 0 && (
+              <details>
+                <summary>{result.skipped.length} dilewati</summary>
+                <ul>
+                  {result.skipped.map((x, i) => (
+                    <li key={i}>
+                      <span className="dv-import-result__name">{x.input}</span> — {x.reason}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            <Button size="sm" variant="text" onClick={() => setResult(null)}>
+              Tutup
+            </Button>
+          </div>
+        )}
       </div>
     </form>
   );
@@ -186,7 +235,7 @@ export function ImportsPage() {
     <div className="dv-studio-page">
       <h1 className="dv-studio-page__title">Impor dari YouTube</h1>
       <ToolCard />
-      <AddForm maxHeight={data?.maxHeight ?? 1080} />
+      <AddForm maxHeight={data?.maxHeight ?? 1080} maxPlaylistItems={data?.maxPlaylistItems ?? 500} />
       {data && (
         <div className="dv-stat-row" style={{ marginTop: 24 }}>
           {(
@@ -247,6 +296,12 @@ export function ImportsPage() {
                           {it.visibility === 'private' ? 'Privat' : 'Publik'}
                           {it.category && ` · ${it.category}`}
                         </div>
+                        {it.playlist && (
+                          <div className="dv-text-secondary dv-import-row__meta" title={it.playlist.title ?? it.playlist.id}>
+                            Playlist: {it.playlist.title ?? it.playlist.id}
+                            {it.playlist.index != null && ` · #${it.playlist.index}`}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>

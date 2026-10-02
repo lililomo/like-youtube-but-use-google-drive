@@ -6,6 +6,8 @@ import { config } from '../../config.js';
 import { ProcessError, run } from '../../lib/ffmpeg.js';
 
 export const MAX_HEIGHT = 1080;
+/** Batas video per playlist sekali tambah. */
+export const MAX_PLAYLIST_ITEMS = 500;
 
 export const ytdlpPath = (): string => config.YTDLP_PATH || join(config.STORAGE_DIR, 'bin', 'yt-dlp');
 const cookiesPath = (): string => join(config.STORAGE_DIR, 'private', 'youtube-cookies.txt');
@@ -19,9 +21,9 @@ export class YtPermanentError extends Error {}
  */
 const SELECT = ['-f', 'bv*+ba/b', '-S', `res:${MAX_HEIGHT},vcodec:h264,acodec:aac`];
 
-function baseArgs(): string[] {
+function baseArgs(playlist = false): string[] {
   const args = [
-    '--no-playlist',
+    playlist ? '--yes-playlist' : '--no-playlist',
     '--no-colors',
     '--no-mtime',
     '--js-runtimes',
@@ -134,6 +136,7 @@ export function explainYtdlpError(stderr: string): Error {
     [/live event will begin|premieres in|is_upcoming/, 'Siaran/premiere belum dimulai'],
     [/sign in to confirm you.?re not a bot/, 'YouTube meminta verifikasi "bukan bot" untuk IP server — butuh cookies akun YouTube (lihat panduan di halaman Impor)'],
     [/unsupported url|is not a valid url|incomplete youtube id/, 'Link YouTube tidak valid'],
+    [/playlist does not exist|the playlist does not exist|this playlist is private/, 'Playlist tidak ada atau privat'],
   ];
   for (const [re, text] of permanent) if (re.test(lower)) return new YtPermanentError(text);
   return new Error(msg.slice(0, 500) || 'yt-dlp gagal');
@@ -199,6 +202,50 @@ export async function downloadVideo(dir: string, info: YtInfo, onProgress: (frac
   const out = (await readdir(dir)).find((f) => f.startsWith('video.') && !/\.(part|ytdl|temp)$/.test(f) && !/\.f\d+\./.test(f));
   if (!out) throw new Error('file hasil unduhan tidak ditemukan');
   return join(dir, out);
+}
+
+export interface YtPlaylistEntry {
+  id: string;
+  title: string | null;
+  durationSec: number | null;
+  /** Alasan tidak bisa diunduh (privat/dihapus/anggota), atau null. */
+  unavailable: string | null;
+}
+
+export interface YtPlaylist {
+  id: string;
+  title: string;
+  channel: string | null;
+  entries: YtPlaylistEntry[];
+}
+
+interface RawEntry {
+  id?: string;
+  title?: string;
+  duration?: number | null;
+  availability?: string | null;
+  live_status?: string | null;
+}
+
+export function summarizePlaylist(raw: { id?: string; title?: string; channel?: string; uploader?: string; entries?: (RawEntry | null)[] }): YtPlaylist {
+  const entries: YtPlaylistEntry[] = [];
+  for (const e of raw.entries ?? []) {
+    if (!e?.id || !/^[A-Za-z0-9_-]{11}$/.test(e.id)) continue;
+    const title = e.title ?? null;
+    let unavailable: string | null = null;
+    if (title === '[Private video]' || e.availability === 'private') unavailable = 'Video privat di YouTube';
+    else if (title === '[Deleted video]') unavailable = 'Video sudah dihapus di YouTube';
+    else if (e.availability && ['needs_auth', 'subscriber_only', 'premium_only'].includes(e.availability)) unavailable = 'Butuh login/khusus anggota';
+    else if (e.live_status === 'is_upcoming' || e.live_status === 'is_live') unavailable = 'Siaran langsung/premiere belum selesai';
+    entries.push({ id: e.id, title, durationSec: e.duration != null ? Math.round(e.duration) : null, unavailable });
+  }
+  return { id: raw.id ?? '', title: (raw.title ?? raw.id ?? 'Playlist').trim(), channel: raw.channel ?? raw.uploader ?? null, entries };
+}
+
+/** Daftar isi playlist (tanpa mengunduh; --flat-playlist), maksimal `max` video. */
+export async function fetchPlaylist(url: string, max = MAX_PLAYLIST_ITEMS, signal?: AbortSignal): Promise<YtPlaylist> {
+  const res = await ytdlp([...baseArgs(true), '--flat-playlist', '--playlist-end', String(max), '-J', url], { signal, timeoutMs: 180_000 });
+  return summarizePlaylist(JSON.parse(res.stdout.toString()) as Parameters<typeof summarizePlaylist>[0]);
 }
 
 export async function ytdlpVersion(): Promise<string | null> {

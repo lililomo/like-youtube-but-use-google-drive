@@ -10,15 +10,20 @@ import { enqueueJob, jobEvents } from '../processing/queue.js';
 import { cancelRunningJob } from '../processing/worker.js';
 import { settings } from '../settings/service.js';
 import { thumbUrls } from '../videos/model.js';
-import { canonicalUrl, parseYoutubeId, splitLinks } from './url.js';
-import { MAX_HEIGHT, updateYtdlp, ytdlpPath, ytdlpVersion } from './ytdlp.js';
+import { canonicalUrl, parseYoutubeLink, playlistUrl, splitLinks, unsupportedPlaylistReason } from './url.js';
+import { fetchPlaylist, MAX_HEIGHT, MAX_PLAYLIST_ITEMS, updateYtdlp, ytdlpPath, ytdlpVersion, type YtPlaylist } from './ytdlp.js';
 
 const MAX_PER_BATCH = 100;
+/** Batas total video yang masuk antrean sekali tambah (termasuk isi playlist). */
+const MAX_TOTAL = 1000;
 
 interface Row {
   id: number;
   url: string;
   yt_id: string;
+  playlist_id: string | null;
+  playlist_title: string | null;
+  playlist_index: number | null;
   title: string | null;
   channel: string | null;
   duration_sec: number | null;
@@ -66,6 +71,7 @@ function present(r: Row) {
     id: r.id,
     url: r.url,
     ytId: r.yt_id,
+    playlist: r.playlist_id ? { id: r.playlist_id, title: r.playlist_title, index: r.playlist_index } : null,
     title: r.title,
     channel: r.channel,
     durationSec: r.duration_sec,
@@ -88,7 +94,7 @@ function present(r: Row) {
   };
 }
 
-const SELECT = `SELECT i.id, i.url, i.yt_id, i.title, i.channel, i.duration_sec, i.phase, i.format_note, i.size_bytes, i.visibility,
+const SELECT = `SELECT i.id, i.url, i.yt_id, i.playlist_id, i.playlist_title, i.playlist_index, i.title, i.channel, i.duration_sec, i.phase, i.format_note, i.size_bytes, i.visibility,
                        i.created_at, i.finished_at, i.job_id,
                        j.status AS job_status, j.progress AS job_progress, j.last_error AS job_error, j.attempts AS job_attempts,
                        j.max_attempts AS job_max, j.run_after AS job_run_after,
@@ -109,7 +115,17 @@ const addBody = z.object({
   categoryId: z.number().int().positive().nullable().optional(),
   /** Impor ulang walau video YouTube yang sama sudah pernah diimpor. */
   force: z.boolean().optional(),
+  /** Link berisi video + playlist (`watch?v=…&list=…`): seluruh playlist (default) atau videonya saja. */
+  playlistMode: z.enum(['all', 'video']).default('all'),
 });
+
+interface Candidate {
+  id: string;
+  input: string;
+  title: string | null;
+  durationSec: number | null;
+  playlist: { id: string; title: string; index: number } | null;
+}
 const idParams = z.object({ id: z.coerce.number().int().positive() });
 
 async function loadRow(id: number): Promise<Row> {
@@ -129,7 +145,7 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
          FROM youtube_imports i LEFT JOIN jobs j ON j.id = i.job_id GROUP BY s`,
     );
     const summary = Object.fromEntries(['queued', 'running', 'done', 'failed', 'cancelled'].map((k) => [k, Number(counts.find((c) => c.s === k)?.n ?? 0)]));
-    return { items, nextCursor: rows.length > q.limit ? String(items.at(-1)!.id) : null, summary, maxHeight: MAX_HEIGHT };
+    return { items, nextCursor: rows.length > q.limit ? String(items.at(-1)!.id) : null, summary, maxHeight: MAX_HEIGHT, maxPlaylistItems: MAX_PLAYLIST_ITEMS };
   });
 
   app.post('/api/admin/imports', { preHandler: requireAdmin }, async (req, reply) => {
@@ -144,45 +160,90 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
     }
     const visibility = body.visibility ?? settings.get('upload.default_visibility');
     const skipped: { input: string; reason: string }[] = [];
-    const ids: string[] = [];
+    const playlists: { id: string; title: string; total: number; added: number }[] = [];
+    const candidates: Candidate[] = [];
+    const seen = new Set<string>();
+    const push = (c: Candidate) => {
+      if (seen.has(c.id)) skipped.push({ input: c.title ?? c.input, reason: 'Ganda di daftar ini' });
+      else {
+        seen.add(c.id);
+        candidates.push(c);
+      }
+    };
     for (const input of links) {
-      const id = parseYoutubeId(input);
-      if (!id) skipped.push({ input, reason: 'Bukan link video YouTube (playlist/channel belum didukung)' });
-      else if (ids.includes(id)) skipped.push({ input, reason: 'Ganda di daftar ini' });
-      else ids.push(id);
+      const link = parseYoutubeLink(input);
+      if (!link) {
+        skipped.push({ input, reason: 'Bukan link video/playlist YouTube' });
+        continue;
+      }
+      if (link.playlistId && (body.playlistMode === 'all' || !link.videoId)) {
+        const why = unsupportedPlaylistReason(link.playlistId);
+        if (why) {
+          if (link.videoId) push({ id: link.videoId, input, title: null, durationSec: null, playlist: null });
+          else skipped.push({ input, reason: why });
+          continue;
+        }
+        let pl: YtPlaylist;
+        try {
+          pl = await fetchPlaylist(playlistUrl(link.playlistId));
+        } catch (err) {
+          skipped.push({ input, reason: `Playlist gagal dibaca: ${(err as Error).message}` });
+          continue;
+        }
+        playlists.push({ id: pl.id, title: pl.title, total: pl.entries.length, added: 0 });
+        for (const [i, e] of pl.entries.entries()) {
+          if (e.unavailable) skipped.push({ input: e.title ?? e.id, reason: e.unavailable });
+          else push({ id: e.id, input: e.id, title: e.title, durationSec: e.durationSec, playlist: { id: pl.id, title: pl.title, index: i + 1 } });
+        }
+        continue;
+      }
+      if (link.videoId) push({ id: link.videoId, input, title: null, durationSec: null, playlist: null });
     }
+    if (candidates.length > MAX_TOTAL) throw badRequest(`Terlalu banyak video sekaligus (${candidates.length}); maksimal ${MAX_TOTAL}`);
+
     let added = 0;
-    for (const id of ids) {
+    for (const c of candidates) {
       if (!body.force) {
         const prev = await queryOne<{ phase: string; job_status: string | null; v_deleted: Date | null; video_id: number | null }>(
           `SELECT i.phase, j.status AS job_status, v.deleted_at AS v_deleted, i.video_id
              FROM youtube_imports i LEFT JOIN jobs j ON j.id = i.job_id LEFT JOIN videos v ON v.id = i.video_id
             WHERE i.yt_id = ? ORDER BY i.id DESC LIMIT 1`,
-          [id],
+          [c.id],
         );
         if (prev && prev.phase !== 'done' && (prev.job_status === 'queued' || prev.job_status === 'running')) {
-          skipped.push({ input: id, reason: 'Sudah ada di antrean' });
+          skipped.push({ input: c.title ?? c.input, reason: 'Sudah ada di antrean' });
           continue;
         }
         if (prev && prev.phase === 'done' && prev.video_id && !prev.v_deleted) {
-          skipped.push({ input: id, reason: 'Sudah pernah diimpor' });
+          skipped.push({ input: c.title ?? c.input, reason: 'Sudah pernah diimpor' });
           continue;
         }
       }
-      const res = await exec('INSERT INTO youtube_imports (url, yt_id, visibility, category_id, created_by) VALUES (?, ?, ?, ?, ?)', [
-        canonicalUrl(id),
-        id,
-        visibility,
-        body.categoryId ?? null,
-        req.viewer.userId,
-      ]);
+      const res = await exec(
+        `INSERT INTO youtube_imports (url, yt_id, playlist_id, playlist_title, playlist_index, title, duration_sec, visibility, category_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          canonicalUrl(c.id),
+          c.id,
+          c.playlist?.id ?? null,
+          c.playlist?.title.slice(0, 300) ?? null,
+          c.playlist?.index ?? null,
+          c.title?.slice(0, 500) ?? null,
+          c.durationSec,
+          visibility,
+          body.categoryId ?? null,
+          req.viewer.userId,
+        ],
+      );
       const jobId = await enqueueJob('yt_import', { payload: { importId: res.insertId } });
       await exec('UPDATE youtube_imports SET job_id = ? WHERE id = ?', [jobId, res.insertId]);
       added++;
+      const pl = c.playlist && playlists.find((p) => p.id === c.playlist!.id);
+      if (pl) pl.added++;
     }
-    if (added) await audit(req, 'import.add', null, { count: added, visibility, categoryId: body.categoryId ?? null });
+    if (added) await audit(req, 'import.add', null, { count: added, visibility, categoryId: body.categoryId ?? null, playlists: playlists.map((p) => p.id) });
     reply.code(added ? 201 : 200);
-    return { added, skipped };
+    return { added, skipped, playlists };
   });
 
   app.post('/api/admin/imports/:id/retry', { preHandler: requireAdmin }, async (req) => {

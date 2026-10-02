@@ -6,7 +6,7 @@ import { notFound } from '../../lib/errors.js';
 import { LruCache } from '../../lib/lru.js';
 import { parse } from '../../lib/validate.js';
 import { requireUser } from '../../plugins/auth.js';
-import { listableSql, type Viewer } from '../../plugins/access.js';
+import { discoverableSql, type Viewer } from '../../plugins/access.js';
 import { settings } from '../settings/service.js';
 import { channelOf, toSummary, VIDEO_SELECT, type VideoRecord } from './model.js';
 import { loadWatchable } from './routes.js';
@@ -48,7 +48,7 @@ interface CatRow {
 
 async function categoriesWithCounts(viewer: Viewer) {
   const cats = await query<CatRow>('SELECT id, parent_id, name, slug, path, depth FROM categories WHERE missing_at IS NULL AND is_hidden = 0 ORDER BY sort_order, id');
-  const [lw, lp] = listableSql(viewer);
+  const [lw, lp] = discoverableSql();
   const counts = await query<{ category_id: number; n: number }>(
     `SELECT v.category_id, COUNT(*) AS n FROM videos v WHERE ${lw} AND v.category_id IS NOT NULL GROUP BY v.category_id`,
     lp,
@@ -122,8 +122,7 @@ async function relatedIds(v: Pick<VideoRecord, 'id' | 'title' | 'category_id' | 
   const hit = relatedCache.get(cacheKey);
   if (hit) return hit;
   if (filter === 'channel') {
-    const guest: Viewer = { userId: null, role: 'guest', guestHash: null };
-    const [lw, lp] = listableSql(guest);
+    const [lw, lp] = discoverableSql();
     const rows = await query<{ id: number }>(`SELECT v.id FROM videos v WHERE ${lw} AND v.owner_user_id <=> ? AND v.id <> ? ORDER BY v.published_at DESC, v.id DESC LIMIT 60`, [
       ...lp,
       v.owner_user_id,
@@ -133,8 +132,7 @@ async function relatedIds(v: Pick<VideoRecord, 'id' | 'title' | 'category_id' | 
     relatedCache.set(cacheKey, ids);
     return ids;
   }
-  const guest: Viewer = { userId: null, role: 'guest', guestHash: null };
-  const [lw, lp] = listableSql(guest);
+  const [lw, lp] = discoverableSql();
   const cols = 'SELECT v.id, v.title, v.category_id, v.owner_user_id, v.view_count, v.published_at FROM videos v';
   const lists = await Promise.all([
     v.category_id ? query<RelatedCandidate>(`${cols} WHERE ${lw} AND v.category_id = ? AND v.id <> ? ORDER BY v.published_at DESC LIMIT 100`, [...lp, v.category_id, v.id]) : [],
@@ -171,7 +169,7 @@ async function relatedIds(v: Pick<VideoRecord, 'id' | 'title' | 'category_id' | 
 async function videosByIds(ids: number[], viewer: Viewer): Promise<Row[]> {
   if (!ids.length) return [];
   const { sql, params } = FEED_SELECT(viewer);
-  const [lw, lp] = listableSql(viewer);
+  const [lw, lp] = discoverableSql();
   const rows = await query<Row>(`${sql} WHERE ${lw} AND v.id IN (?)`, [...params, ...lp, ids]);
   const order = new Map(ids.map((id, i) => [id, i]));
   return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
@@ -200,7 +198,7 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/feed', async (req) => {
     const q = parse(feedQuery, req.query);
     const { sql, params } = FEED_SELECT(req.viewer);
-    const [lw, lp] = listableSql(req.viewer);
+    const [lw, lp] = discoverableSql();
     const where = [lw];
     const wp: unknown[] = [...lp];
     if (q.category) {
@@ -237,7 +235,7 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
     const offset = q.cursor ?? 0;
     const limit = 20;
     const { sql, params } = FEED_SELECT(req.viewer);
-    const [lw, lp] = listableSql(req.viewer);
+    const [lw, lp] = discoverableSql();
     const scoreSql = plan.boolean ? 'MATCH(v.search_text) AGAINST(? IN BOOLEAN MODE)' : '0';
     const scoreParams = plan.boolean ? [plan.boolean] : [];
     const conds: string[] = [];
@@ -281,7 +279,7 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
     const q = parse(z.object({ q: z.string().max(100).default('') }), req.query);
     const plan = planSearch(q.q);
     if (!plan.phrase) return { items: [] };
-    const [lw, lp] = listableSql(req.viewer);
+    const [lw, lp] = discoverableSql();
     const like = escapeLike(plan.phrase);
     const rows = await query<{ title: string }>(
       `SELECT v.title FROM videos v WHERE ${lw} AND (v.search_text LIKE ? OR v.search_text LIKE ?) ORDER BY v.view_count DESC, v.id DESC LIMIT 12`,
@@ -341,7 +339,7 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
       joinedAt = new Date(u.created_at).toISOString();
       channel = channelOf({ owner_user_id: u.id, owner_username: u.username, owner_name: u.display_name, owner_color: u.avatar_color, owner_avatar_key: u.avatar_key });
     }
-    const [lw, lp] = listableSql(req.viewer);
+    const [lw, lp] = discoverableSql();
     const countRow = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM videos v WHERE ${lw} AND v.owner_user_id <=> ?`, [...lp, ownerId]);
     let items: unknown[] = [];
     let nextCursor: string | null = null;
