@@ -103,7 +103,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - Variabel env khusus uji (JANGAN di `.env` produksi): `DRIVE_API_BASE`, `DRIVE_UPLOAD_BASE`, `DRIVE_FAKE_TOKEN`, `SERVE_STATIC`, `DISABLE_SCHEDULER`, `DISABLE_WORKER`.
 
 ## GitHub
-- Repo: **`like-youtube-but-use-google-drive`** (private) — remote `origin`, branch utama `main`.
+- Repo: **https://github.com/lililomo/like-youtube-but-use-google-drive** (private, akun `lililomo`) — remote `origin`, branch utama `main`.
 - Server memakai GitHub CLI `/root/bin/gh` (login akun pemilik; `gh auth setup-git` sebagai credential helper git).
 - Riwayat git dibersihkan dari password admin sebelum push pertama (2026-10-02).
 
@@ -158,3 +158,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 10: pemutar custom (kontrol, progress + storyboard, menu setelan, kualitas, subtitle, keyboard, gesture mouse & sentuh, layar penuh + orientasi, pemulihan error) + halaman Tonton dasar + `/dev/player`; diuji otomatis (keyboard, seek, double-tap akumulatif, ganti kualitas, URL rusak pulih, HEVC→compat, mobile).
 - 2026-10-02 — Step 5 selesai: OAuth client dipublikasikan (In production), Drive terhubung, folder "Dymas Tube" disimpan, folder sistem dibuat, full sync pertama sukses (folder masih kosong). Cek isi folder read-only: `node /root/dv-qa/drive-peek.mjs`.
 - 2026-10-02 — Persiapan GitHub: password admin dihapus dari dokumen & seluruh riwayat git (filter-branch), `scripts/pull-deploy.sh`, skrip QA disalin ke `scripts/dev/qa/`, panduan kerja dari Claude cloud.
+- 2026-10-02 — Repo GitHub private `lililomo/like-youtube-but-use-google-drive` dibuat & seluruh riwayat (bersih dari password) di-push; `gh auth setup-git` di server.
