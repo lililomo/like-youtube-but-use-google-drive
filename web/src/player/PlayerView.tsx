@@ -20,6 +20,7 @@ export interface PlayerViewProps {
   /** Menonton dari playlist: lanjut tanpa hitung mundur. */
   playlistMode?: boolean;
   onSelect?: (id: string) => void;
+  onPlay?: () => void;
   onEnded?: () => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -63,6 +64,7 @@ export function PlayerView(props: PlayerViewProps) {
     player.current = p;
     if (handlers.current.playerRef) handlers.current.playerRef.current = p;
     p.on('ended', () => handlers.current.onEnded?.());
+    p.on('play', () => handlers.current.onPlay?.());
     p.on('next', () => handlers.current.onNext?.());
     p.on('prev', () => handlers.current.onPrev?.());
     p.on('theater', (on) => handlers.current.onTheater?.(on));

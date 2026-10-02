@@ -100,13 +100,32 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** tidak ada perubahan konfigurasi server.
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-003 — Step 12 (halaman tonton): uji dengan Drive asli + bandingkan dengan YouTube
+- **Asal:** Step 12 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy
+- **Butuh user:** 🧑 ya — konfirmasi sebelum mengubah/menghapus video uji di Drive asli (pakai video uji, bukan video penting)
+- **Kenapa:** rename/pindah/trash diuji dengan fake Drive; youtube.com tidak bisa diakses dari Claude cloud untuk perbandingan visual.
+- **Langkah:**
+  ```bash
+  # uji otomatis di instance uji (fake Drive)
+  bash scripts/dev/test-instance.sh start
+  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/watch-test.mjs . && CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node watch-test.mjs   # harus 19/19
+  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+  # perbandingan visual (skrip yt.mjs & shot.mjs di /root/dv-qa)
+  for w in 1920 1280 1000 400; do for th in dark light; do node yt.mjs $w 900 $th yt-watch-$w-$th; BASE=https://video.dymas.cloud node shot.mjs app-watch-$w-$th "/watch?v=<id video publik>" $w 900 $th; done; done
+  ```
+  Di produksi (setelah user setuju): pada satu video uji → ubah judul (cek nama file di Drive ikut berubah, subtitle `.srt` ikut berganti nama), jadikan Privat lalu Publik, lalu Hapus (file masuk Trash Drive; pulihkan dari Trash → video kembali setelah sinkron).
+- **Verifikasi:** watch-test 19/19; selisih visual yang mencolok dengan YouTube dicatat & diperbaiki; perilaku Drive sesuai.
+- **Rollback:** tidak ada perubahan konfigurasi server.
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 12–15** — Verifikasi fitur step di https://video.dymas.cloud setelah deploy (halaman tonton, playlist, upload ≥ 1 GB ke Drive asli, panel admin).
+- **Step 13–15** — Verifikasi fitur step di https://video.dymas.cloud setelah deploy (playlist, upload ≥ 1 GB ke Drive asli, panel admin).
 - **Step 16** — `/etc/logrotate.d/video_dymas` (harian, simpan 14, copytruncate, compress).
 - **Step 16** — Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 (API `bt-api.py` atau UI).
 - **Step 16** — Cek gzip nginx global aaPanel mencakup `application/json`, `text/css`, `application/javascript`, `image/svg+xml`.

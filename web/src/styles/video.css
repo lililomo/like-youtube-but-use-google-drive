@@ -373,7 +373,8 @@
   justify-content: flex-end;
   background: linear-gradient(to left, var(--bg) 40%, transparent);
 }
-.dv-chipbar--static {
+.dv-chipbar.dv-chipbar--static,
+.dv-app--mobile .dv-chipbar.dv-chipbar--static {
   position: relative;
   top: auto;
 }

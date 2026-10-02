@@ -81,3 +81,28 @@ export function formatDateTime(date: string | number | Date): string {
 export function formatVideoCount(n: number): string {
   return n === 0 ? 'Tidak ada video' : `${n.toLocaleString('id-ID')} video`;
 }
+
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+/** Judul kelompok Histori (zona waktu browser): "Hari ini", "Kemarin", nama hari (minggu ini), atau tanggal. */
+export function historyDayLabel(date: string | number | Date, now: Date = new Date()): string {
+  const d = new Date(date);
+  if (!Number.isFinite(d.getTime())) return '';
+  const days = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
+  if (days <= 0) return 'Hari ini';
+  if (days === 1) return 'Kemarin';
+  if (days < 7) return d.toLocaleDateString('id-ID', { weekday: 'long' });
+  return d.toLocaleDateString('id-ID', d.getFullYear() === now.getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** Kelompokkan item berurutan (terbaru dulu) per hari. */
+export function groupByDay<T>(items: T[], dateOf: (item: T) => string, now: Date = new Date()): { label: string; items: T[] }[] {
+  const groups: { label: string; items: T[] }[] = [];
+  for (const it of items) {
+    const label = historyDayLabel(dateOf(it), now);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(it);
+    else groups.push({ label, items: [it] });
+  }
+  return groups;
+}

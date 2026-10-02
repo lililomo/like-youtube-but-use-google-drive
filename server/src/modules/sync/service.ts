@@ -104,7 +104,8 @@ async function upsertVideo(file: DriveFile, parentId: string, categoryId: number
     const taken = isVideoId(props.dvVid) ? await queryOne('SELECT id FROM videos WHERE public_id = ?', [props.dvVid]) : null;
     const publicId = isVideoId(props.dvVid) && !taken ? props.dvVid : newVideoId();
     const ownerId = await resolveOwner(props);
-    const visibility = ownerId && props.dvVis === 'private' ? 'private' : 'public';
+    // dvVis ditulis aplikasi saat visibilitas diubah (juga untuk video channel utama) → dipakai saat DB dibangun ulang.
+    const visibility = props.dvVis === 'private' ? 'private' : 'public';
     const res = await exec(
       `INSERT INTO videos (public_id, drive_file_id, drive_parent_id, category_id, owner_user_id, source, visibility, status,
                            title, search_text, file_name, mime_type, size_bytes, md5, duration_ms, width, height,

@@ -9,6 +9,8 @@ import { LoginPage } from './pages/Login';
 import { NotFoundPage } from './pages/NotFound';
 import { PlaceholderPage } from './pages/Placeholder';
 import { ResultsPage } from './pages/Results';
+import { HistoryPage } from './pages/History';
+import { YouPage } from './pages/You';
 
 export const router = createBrowserRouter([
   {
@@ -22,8 +24,8 @@ export const router = createBrowserRouter([
           { path: 'playlist', element: <PlaceholderPage title={t.nav.playlists} icon="playlist-play" /> },
           { path: 'feed/playlists', element: <PlaceholderPage title={t.nav.playlists} icon="library" /> },
           { path: 'feed/playlists/public', element: <PlaceholderPage title={t.nav.explorePlaylists} icon="explore" /> },
-          { path: 'feed/you', element: <PlaceholderPage title={t.nav.you} icon="library" /> },
-          { path: 'feed/history', element: <PlaceholderPage title={t.nav.history} icon="history" /> },
+          { path: 'feed/you', element: <YouPage /> },
+          { path: 'feed/history', element: <HistoryPage /> },
           {
             path: 'my/videos',
             element: (

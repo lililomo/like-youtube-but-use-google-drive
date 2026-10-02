@@ -139,3 +139,191 @@
 .dv-home {
   min-height: 60vh;
 }
+
+/* ===== Histori (/feed/history) ===== */
+.dv-history {
+  display: flex;
+  gap: 32px;
+  max-width: 1284px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+.dv-history__main {
+  flex: 1;
+  min-width: 0;
+  max-width: 852px;
+}
+.dv-history__heading {
+  font-size: 3.6rem;
+  line-height: 5rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.dv-history__day {
+  font-size: 2rem;
+  line-height: 2.8rem;
+  font-weight: 700;
+  margin: 24px 0 12px;
+}
+.dv-history__item {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dv-history__thumb {
+  width: 246px;
+  flex: none;
+}
+.dv-history__body {
+  flex: 1;
+  min-width: 0;
+  padding-right: 40px;
+}
+.dv-history__title {
+  font-size: 1.8rem;
+  line-height: 2.6rem;
+  font-weight: 500;
+}
+.dv-history__meta {
+  margin-top: 4px;
+  font-size: 1.2rem;
+  line-height: 1.8rem;
+  color: var(--text-secondary);
+}
+.dv-history__meta a:hover {
+  color: var(--text);
+}
+.dv-history__remove {
+  position: absolute;
+  top: -8px;
+  right: 0;
+}
+.dv-history__side {
+  width: 360px;
+  flex: none;
+  padding-top: 72px;
+}
+.dv-mb-16 {
+  margin-bottom: 16px;
+}
+@media (max-width: 1100px) {
+  .dv-history {
+    flex-direction: column-reverse;
+    gap: 0;
+  }
+  .dv-history__side {
+    width: auto;
+    padding-top: 0;
+  }
+}
+@media (max-width: 656px) {
+  .dv-history {
+    padding: 12px;
+  }
+  .dv-history__heading {
+    font-size: 2.4rem;
+    line-height: 3.2rem;
+  }
+  .dv-history__thumb {
+    width: 160px;
+  }
+  .dv-history__title {
+    font-size: 1.4rem;
+    line-height: 2rem;
+  }
+}
+
+/* ===== Anda (/feed/you) ===== */
+.dv-you {
+  max-width: 1284px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.dv-you__header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.dv-you__name {
+  font-size: 3.6rem;
+  line-height: 5rem;
+  font-weight: 700;
+}
+.dv-you__handle {
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+}
+.dv-you__handle a {
+  color: var(--text);
+}
+.dv-you__guest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.dv-you__guest h1 {
+  font-size: 2.4rem;
+  color: var(--text);
+}
+.dv-shelf {
+  margin-bottom: 24px;
+}
+.dv-shelf__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.dv-shelf__heading {
+  font-size: 2rem;
+  line-height: 2.8rem;
+  font-weight: 700;
+}
+.dv-shelf__row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.dv-shelf__card {
+  width: 210px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dv-shelf__title {
+  margin-top: 6px;
+  font-size: 1.4rem;
+  line-height: 2rem;
+  font-weight: 500;
+}
+.dv-shelf__meta {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+@media (max-width: 656px) {
+  .dv-you {
+    padding: 12px;
+  }
+  .dv-you__header img,
+  .dv-you__header .dv-avatar {
+    width: 72px !important;
+    height: 72px !important;
+  }
+  .dv-you__name {
+    font-size: 2.4rem;
+    line-height: 3.2rem;
+  }
+  .dv-shelf__card {
+    width: 160px;
+  }
+}

@@ -1,4 +1,5 @@
 import { formatDuration } from '../../lib/format';
+import { useWatch } from '../../stores/watch';
 import type { VideoSummary } from '../../lib/types';
 import { Icon } from '../icons/Icon';
 
@@ -10,12 +11,14 @@ export function Thumbnail({
   sizes = '(max-width: 656px) 100vw, 360px',
   eager = false,
 }: {
-  video: Pick<VideoSummary, 'thumb' | 'durationSec' | 'progressSec' | 'status' | 'title'>;
+  video: Pick<VideoSummary, 'id' | 'thumb' | 'durationSec' | 'progressSec' | 'status' | 'title'>;
   sizes?: string;
   eager?: boolean;
 }) {
-  const pct =
-    video.progressSec && video.durationSec ? Math.min(100, Math.max(4, (video.progressSec / video.durationSec) * 100)) : 0;
+  // Progres terbaru di perangkat ini (sesi/tamu) lebih baru daripada data dari server.
+  const local = useWatch((st) => st.progress[video.id]);
+  const progress = local?.p ?? video.progressSec;
+  const pct = progress && video.durationSec ? Math.min(100, Math.max(4, (progress / video.durationSec) * 100)) : 0;
   const notReady = video.status && video.status !== 'ready';
   return (
     <div className="dv-thumb">

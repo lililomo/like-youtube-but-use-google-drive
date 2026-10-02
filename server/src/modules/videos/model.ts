@@ -8,7 +8,7 @@ import { settings } from '../settings/service.js';
 export const VIDEO_SELECT = `
   SELECT v.id, v.public_id, v.title, v.duration_ms, v.thumb_key, v.view_count, v.published_at, v.visibility, v.status,
          v.owner_user_id, v.category_id, v.deleted_at, v.width, v.height, v.mime_type, v.container, v.video_codec,
-         v.original_playable, v.storyboard, v.drive_file_id, v.size_bytes, v.bitrate_kbps, v.processing_error, v.source,
+         v.original_playable, v.storyboard, v.drive_file_id, v.size_bytes, v.bitrate_kbps, v.processing_error, v.source, v.file_name,
          u.username AS owner_username, u.display_name AS owner_name, u.avatar_color AS owner_color, u.avatar_key AS owner_avatar_key,
          c.slug AS category_slug, c.name AS category_name
     FROM videos v
@@ -40,6 +40,7 @@ export interface VideoRecord {
   bitrate_kbps: number | null;
   processing_error: string | null;
   source: 'drive' | 'upload';
+  file_name: string;
   owner_username: string | null;
   owner_name: string | null;
   owner_color: string | null;

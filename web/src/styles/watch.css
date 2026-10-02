@@ -199,3 +199,105 @@
   border-radius: 8px;
   font-size: 1.2rem;
 }
+
+/* ===== Step 12: chip kolom kanan, aksi pemilik ===== */
+.dv-watch__chips {
+  margin-bottom: 12px;
+}
+.dv-watch__chips .dv-chipbar {
+  padding: 0;
+  height: auto;
+}
+.dv-btn__caret {
+  margin-left: 2px;
+  margin-right: -6px;
+}
+.dv-vis-menu .dv-menu-item {
+  height: auto;
+  min-height: 56px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.dv-vis-menu .dv-menu-item__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dv-vis-menu__title {
+  font-weight: 500;
+}
+.dv-vis-menu__desc {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  white-space: normal;
+  max-width: 240px;
+}
+.dv-watch__unavailable .dv-btn {
+  margin-top: 8px;
+}
+
+/* ===== Dialog Bagikan ===== */
+.dv-share__targets {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 16px;
+}
+.dv-share__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 76px;
+  flex: none;
+  font-size: 1.2rem;
+  color: var(--text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.dv-share__icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.dv-share__icon svg {
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
+}
+.dv-share__icon--more {
+  background: var(--bg-secondary);
+  color: var(--text);
+}
+.dv-share__target:hover .dv-share__icon {
+  filter: brightness(1.1);
+}
+.dv-share__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+}
+.dv-share__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.4rem;
+  outline: none;
+}
+.dv-share__start {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}

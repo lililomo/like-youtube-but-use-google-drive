@@ -9,7 +9,7 @@ import { listableSql, type Viewer } from '../../plugins/access.js';
 import { settings } from '../settings/service.js';
 import { channelOf, toSummary, VIDEO_SELECT, type VideoRecord } from './model.js';
 import { loadWatchable } from './routes.js';
-import { decodeCursor, encodeCursor, escapeLike, planSearch, relatedScore, type RelatedCandidate } from './search.js';
+import { decodeCursor, encodeCursor, escapeLike, jaccard, planSearch, relatedScore, type RelatedCandidate } from './search.js';
 
 const PAGE = 24;
 
@@ -106,11 +106,31 @@ export function startViewFlusher(): void {
 // Rekomendasi
 // ---------------------------------------------------------------------------
 
-const relatedCache = new LruCache<number, number[]>(2000, 10 * 60_000);
+type RelatedFilter = 'all' | 'channel' | 'related';
+const relatedCache = new LruCache<string, number[]>(2000, 10 * 60_000);
 
-async function relatedIds(v: Pick<VideoRecord, 'id' | 'title' | 'category_id' | 'owner_user_id'>): Promise<number[]> {
-  const hit = relatedCache.get(v.id);
+/**
+ * Rekomendasi kolom kanan halaman tonton.
+ * - all: skor kategori/pemilik/kemiripan judul/popularitas/kebaruan (+ jitter harian)
+ * - channel: video lain dari channel yang sama (chip "Dari <channel>"), terbaru dulu
+ * - related: hanya yang benar-benar terkait (kategori sama atau judul mirip) — chip "Terkait"
+ */
+async function relatedIds(v: Pick<VideoRecord, 'id' | 'title' | 'category_id' | 'owner_user_id'>, filter: RelatedFilter = 'all'): Promise<number[]> {
+  const cacheKey = `${v.id}:${filter}`;
+  const hit = relatedCache.get(cacheKey);
   if (hit) return hit;
+  if (filter === 'channel') {
+    const guest: Viewer = { userId: null, role: 'guest', guestHash: null };
+    const [lw, lp] = listableSql(guest);
+    const rows = await query<{ id: number }>(`SELECT v.id FROM videos v WHERE ${lw} AND v.owner_user_id <=> ? AND v.id <> ? ORDER BY v.published_at DESC, v.id DESC LIMIT 60`, [
+      ...lp,
+      v.owner_user_id,
+      v.id,
+    ]);
+    const ids = rows.map((r) => r.id);
+    relatedCache.set(cacheKey, ids);
+    return ids;
+  }
   const guest: Viewer = { userId: null, role: 'guest', guestHash: null };
   const [lw, lp] = listableSql(guest);
   const cols = 'SELECT v.id, v.title, v.category_id, v.owner_user_id, v.view_count, v.published_at FROM videos v';
@@ -123,12 +143,26 @@ async function relatedIds(v: Pick<VideoRecord, 'id' | 'title' | 'category_id' | 
   const uniq = new Map<number, RelatedCandidate>();
   for (const list of lists) for (const c of list) uniq.set(c.id, c);
   const day = new Date().toISOString().slice(0, 10);
-  const ids = [...uniq.values()]
+  let pool = [...uniq.values()];
+  if (filter === 'related') {
+    // Kategori "keluarga" (sama, induk, anak, saudara) atau judul mirip.
+    const family = new Set<number>();
+    if (v.category_id != null) {
+      const fam = await query<{ id: number }>(
+        `SELECT c.id FROM categories c JOIN categories b ON b.id = ?
+          WHERE c.missing_at IS NULL AND (c.id = b.id OR c.id = b.parent_id OR c.parent_id = b.id OR (b.parent_id IS NOT NULL AND c.parent_id = b.parent_id))`,
+        [v.category_id],
+      );
+      for (const r of fam) family.add(r.id);
+    }
+    pool = pool.filter((c) => (c.category_id != null && family.has(c.category_id)) || jaccard(v.title, c.title) >= 0.2);
+  }
+  const ids = pool
     .map((c) => ({ id: c.id, s: relatedScore(v, c, day) }))
     .sort((a, b) => b.s - a.s)
     .slice(0, 60)
     .map((x) => x.id);
-  relatedCache.set(v.id, ids);
+  relatedCache.set(cacheKey, ids);
   return ids;
 }
 
@@ -238,12 +272,23 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get<{ Params: { id: string } }>('/api/videos/:id/related', async (req) => {
-    const q = parse(z.object({ cursor: z.coerce.number().int().min(0).max(60).optional(), limit: z.coerce.number().int().min(1).max(30).default(20) }), req.query);
+    const q = parse(
+      z.object({
+        cursor: z.coerce.number().int().min(0).max(60).optional(),
+        limit: z.coerce.number().int().min(1).max(30).default(20),
+        filter: z.enum(['all', 'channel', 'related']).default('all'),
+      }),
+      req.query,
+    );
     const v = await loadWatchable(req.params.id, req.viewer);
-    const ids = await relatedIds(v);
+    const ids = await relatedIds(v, q.filter);
     const offset = q.cursor ?? 0;
     const slice = ids.slice(offset, offset + q.limit);
-    return { items: summarize(await videosByIds(slice, req.viewer), req.viewer), nextCursor: offset + q.limit < ids.length ? String(offset + q.limit) : null };
+    const page = { items: summarize(await videosByIds(slice, req.viewer), req.viewer), nextCursor: offset + q.limit < ids.length ? String(offset + q.limit) : null };
+    if (offset > 0 || q.filter !== 'all') return page;
+    // Halaman pertama: chip filter mana yang punya isi (kolom kanan halaman tonton).
+    const [channel, related] = await Promise.all([relatedIds(v, 'channel'), relatedIds(v, 'related')]);
+    return { ...page, chips: { channel: channel.length > 0, related: related.length > 0 } };
   });
 
   app.post<{ Params: { id: string } }>('/api/videos/:id/view', async (req) => {

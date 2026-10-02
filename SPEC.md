@@ -901,9 +901,9 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/search/suggest` | publik | `?q=` → maks 8 judul |
 | GET `/api/videos/:id` | sesuai §13 | `VideoDetail` |
 | GET `/api/videos/:id/sources` | sesuai §13 | sources baru (refresh signature) |
-| GET `/api/videos/:id/related` | sesuai §13 | `?cursor=` maks 60 total |
+| GET `/api/videos/:id/related` | sesuai §13 | `?cursor=&filter=all|channel|related` maks 60 total; halaman pertama `all` menyertakan `chips {channel, related}` (chip kolom kanan) |
 | POST `/api/videos/:id/view` | publik | hitung tayangan (dedupe) |
-| PATCH `/api/videos/:id` | pemilik/admin | `{title?, visibility?, categoryId?}` — title → rename file Drive (ekstensi dipertahankan) |
+| PATCH `/api/videos/:id` | pemilik/admin | `{title?, visibility?, categoryId?}` — title (1–100 karakter) → rename file Drive (ekstensi dipertahankan) **dan file subtitle `<judul>.*`** agar pencocokan subtitle tetap jalan; visibility → `appProperties.dvVis`; categoryId → pindah ke folder kategori (null = folder root) |
 | DELETE `/api/videos/:id` | pemilik/admin | trash file Drive + soft delete + `delete_assets` |
 | POST `/api/videos/:id/subtitles` | pemilik/admin | multipart |
 | DELETE `/api/subtitles/:id` | pemilik/admin | trash file Drive |
@@ -922,7 +922,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/playlists/contains/:videoId` | user/tamu | id playlist milik saya yang berisi video (dialog Simpan) |
 | POST `/api/playlists/import-guest` | login | pindahkan playlist `dv_gid` ke akun |
 | GET `/api/history` · DELETE `/api/history` · DELETE `/api/history/:videoId` | login | |
-| POST `/api/progress` | login | `{videoId, positionSec, durationSec}` (fetch keepalive) |
+| POST `/api/progress` | publik (tamu → 204 tanpa simpan) | `{videoId, positionSec, durationSec}` (fetch keepalive); posisi disimpan apa adanya, aturan resume di klien |
 | GET `/api/progress?ids=a,b,c` | login | untuk bar merah thumbnail |
 | GET `/api/admin/stats` · `/api/admin/system` | admin | dasbor; system: disk, versi ffmpeg/node, memori, ukuran antrean |
 | GET/POST `/api/admin/users` · PATCH/DELETE `/api/admin/users/:id` · POST `/api/admin/users/:id/reset-password` | admin | DELETE body `{videos:'delete'|'transfer'}` |

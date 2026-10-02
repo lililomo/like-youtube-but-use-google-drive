@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { groupByDay, historyDayLabel } from './format';
 import { formatBytes, formatCount, formatDuration, formatRelative, formatVideoCount, formatViews } from './format';
 import { safeNext } from './url';
 
@@ -77,5 +78,21 @@ describe('lainnya', () => {
     expect(safeNext('/\\evil.com')).toBe('/');
     expect(safeNext(null)).toBe('/');
     expect(safeNext('/login?next=/x')).toBe('/');
+  });
+});
+
+describe('histori per hari', () => {
+  const now = new Date(2026, 9, 2, 10, 0); // Jumat 2 Okt 2026, waktu lokal
+  it('label hari', () => {
+    expect(historyDayLabel(new Date(2026, 9, 2, 0, 5), now)).toBe('Hari ini');
+    expect(historyDayLabel(new Date(2026, 9, 1, 23, 59), now)).toBe('Kemarin');
+    expect(historyDayLabel(new Date(2026, 8, 28, 12), now)).toBe('Senin');
+    expect(historyDayLabel(new Date(2026, 8, 12, 12), now)).toMatch(/12 Sep/);
+    expect(historyDayLabel(new Date(2025, 11, 30, 12), now)).toMatch(/2025/);
+  });
+  it('groupByDay menjaga urutan', () => {
+    const items = [new Date(2026, 9, 2, 9), new Date(2026, 9, 2, 8), new Date(2026, 9, 1, 8), new Date(2026, 8, 12)].map((d, i) => ({ i, at: d.toISOString() }));
+    const g = groupByDay(items, (x) => x.at, now);
+    expect(g.map((x) => [x.label, x.items.length])).toEqual([['Hari ini', 2], ['Kemarin', 1], [expect.stringMatching(/12 Sep/), 1]]);
   });
 });
