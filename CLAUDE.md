@@ -22,7 +22,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 2 — Database, migrasi, settings, kriptografi — 2026-10-02
 - [x] Step 3 — Auth, sesi, CSRF, tamu, manajemen user — 2026-10-02
 - [x] Step 4 — Fondasi frontend & design system YouTube — 2026-10-02
-- [~] Step 5 — Integrasi Google Drive — kode selesai & diuji tanpa akun Google (2026-10-02); **menunggu user** membuat OAuth Client + menghubungkan + memilih folder, lalu verifikasi nyata (status terhubung, tes folder, folder `_dymasvideo_system/renditions` terbentuk)
+- [x] Step 5 — Integrasi Google Drive — 2026-10-02 (terhubung ke Drive asli; folder sumber masih kosong → verifikasi nyata Step 6–8 menunggu video diunggah ke folder)
 - [x] Step 6 — Sinkronisasi folder — 2026-10-02 (diuji dengan fake Drive; verifikasi ulang dengan Drive asli setelah Step 5 terhubung)
 - [x] Step 7 — Streaming — 2026-10-02 (diuji dengan fake Drive)
 - [x] Step 8 — Pemrosesan media (ffmpeg) — 2026-10-02 (diuji dengan fake Drive & 8 video sintetis)
@@ -83,7 +83,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
 | Paket | npm workspaces (`server`, `web`); versi dipatok: TypeScript 5.9, Vite 7, React 19, react-router 7, Fastify 5, vitest 3, zod 4, undici 7, google-auth-library 10, sharp 0.34. `allowScripts` (npm 11) menyetujui esbuild & sharp |
-| Google Drive | Belum terhubung. Mode OAuth (default) · redirect URI `https://video.dymas.cloud/api/admin/drive/oauth/callback` · scope `drive openid email`, `access_type=offline`, `prompt=consent` · folder sistem `_dymasvideo_system/renditions` dibuat saat folder disimpan · halaman admin `/admin/settings/drive` · API: `/api/admin/drive/{status,oauth/start,oauth/callback,disconnect,service-account,test,folder}`, `GET /api/admin/settings`, `PUT /api/admin/settings/:group` (site, drive, processing, upload, player, security) |
+| Google Drive | **Terhubung** (OAuth) sebagai `dymassedhayu@gmail.com`; folder sumber **"Dymas Tube"** (`1m07wAiRimwzZ82rOSbaI9lxJ4U83PUCQ`, My Drive), folder sistem `_dymasvideo_system` (`1rgUPx7aR2wrTO-h81rtQ7oKqnT7YYDr0`) / `renditions` (`1RtLYZGu6CYeZJ3pwr3BqfFYzKKJdGE1z`). OAuth client project Google Cloud status **In production** (wajib; Testing → token kedaluwarsa 7 hari). Mode OAuth (default) · redirect URI `https://video.dymas.cloud/api/admin/drive/oauth/callback` · scope `drive openid email`, `access_type=offline`, `prompt=consent` · folder sistem `_dymasvideo_system/renditions` dibuat saat folder disimpan · halaman admin `/admin/settings/drive` · API: `/api/admin/drive/{status,oauth/start,oauth/callback,disconnect,service-account,test,folder}`, `GET /api/admin/settings`, `PUT /api/admin/settings/:group` (site, drive, processing, upload, player, security) |
 
 ## Kredensial (non-rahasia/permintaan user)
 - Admin aplikasi (awal): **admin / <lihat ADMIN_INITIAL_PASSWORD di .env server>** (seeder; jika diganti, catat bahwa sudah diganti — jangan tulis password baru).
@@ -145,3 +145,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 8: antrean job + worker, probe/thumbnail/rendition/compat/storyboard/hapus aset, halaman Antrean & Pemrosesan; diuji: HEVC→compat, vertikal, VP9, frame hitam dihindari, rendition lama di-trash, restart di tengah job.
 - 2026-10-02 — Step 9: feed/kategori/pencarian/saran/rekomendasi/tayangan/channel + OG meta; UI Beranda, Hasil, Channel, dropdown saran; diverifikasi via screenshot.
 - 2026-10-02 — Step 10: pemutar custom (kontrol, progress + storyboard, menu setelan, kualitas, subtitle, keyboard, gesture mouse & sentuh, layar penuh + orientasi, pemulihan error) + halaman Tonton dasar + `/dev/player`; diuji otomatis (keyboard, seek, double-tap akumulatif, ganti kualitas, URL rusak pulih, HEVC→compat, mobile).
+- 2026-10-02 — Step 5 selesai: OAuth client dipublikasikan (In production), Drive terhubung, folder "Dymas Tube" disimpan, folder sistem dibuat, full sync pertama sukses (folder masih kosong). Cek isi folder read-only: `node /root/dv-qa/drive-peek.mjs`.
