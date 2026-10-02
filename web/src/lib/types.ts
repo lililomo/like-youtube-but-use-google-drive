@@ -74,3 +74,21 @@ export interface Category {
   parentSlug: string | null;
   videoCount: number;
 }
+
+export interface PlaylistSummary {
+  id: string;
+  title: string;
+  visibility: 'public' | 'private';
+  itemCount: number;
+  thumb: { sd: string; hd: string } | null;
+  owner: { name: string; handle: string } | null;
+  isGuest: boolean;
+  updatedAt: string;
+  firstVideoId: string | null;
+}
+
+export interface PlaylistDetail {
+  playlist: PlaylistSummary & { canEdit: boolean; visibleCount: number };
+  items: VideoSummary[];
+  hiddenCount: number;
+}

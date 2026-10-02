@@ -9,6 +9,8 @@ import { Avatar, EmptyState, Skeleton } from '../components/ui/misc';
 import { ChipBar } from '../components/video/ChipBar';
 import { InfiniteSentinel, VideoGrid } from '../components/video/VideoGrid';
 import { NotFoundPage } from './NotFound';
+import { PlaylistGrid } from '../components/playlist/PlaylistCard';
+import type { PlaylistSummary } from '../lib/types';
 
 type ChannelPage = Page<VideoSummary> & { channel: Channel & { videoCount: number; joinedAt: string | null; isMain: boolean } };
 
@@ -79,8 +81,13 @@ export function ChannelPage() {
           )}
           <InfiniteSentinel onVisible={loadMore} disabled={!q.hasNextPage || q.isFetchingNextPage} />
         </>
-      ) : (
+      ) : !q.isPending && videos.length === 0 ? (
         <EmptyState icon="playlist-play" title="Belum ada playlist publik" />
+      ) : (
+        <>
+          <PlaylistGrid playlists={videos as unknown as PlaylistSummary[]} loading={q.isPending || q.isFetchingNextPage} />
+          <InfiniteSentinel onVisible={loadMore} disabled={!q.hasNextPage || q.isFetchingNextPage} />
+        </>
       )}
     </div>
   );

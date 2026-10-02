@@ -8,6 +8,7 @@ import { Icon, type IconName } from '../icons/Icon';
 import { IconButton } from '../ui/Button';
 import { LoginButton } from './AccountMenu';
 import { Logo } from './Logo';
+import { playlistUrl, useMyPlaylists } from '../../lib/playlistQueries';
 
 interface NavItem {
   to: string;
@@ -39,6 +40,7 @@ export function GuideContent({ onNavigate }: { onNavigate?: () => void }) {
   const user = useSession((s) => s.user);
   const site = useSite();
   const isActive = useActive();
+  const mine = useMyPlaylists();
 
   const youItems: NavItem[] = [
     { to: '/feed/history', label: t.nav.history, icon: 'history' },
@@ -60,6 +62,9 @@ export function GuideContent({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
         {youItems.map((item) => (
           <GuideEntry key={item.to} item={item} active={isActive(item)} onNavigate={onNavigate} />
+        ))}
+        {(mine.data?.items ?? []).slice(0, 5).map((p) => (
+          <GuideEntry key={p.id} item={{ to: playlistUrl(p.id), label: p.title, icon: 'playlist-play' }} active={false} onNavigate={onNavigate} />
         ))}
       </div>
       {!user && (

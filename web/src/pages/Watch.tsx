@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/icons/Icon';
 import { Button } from '../components/ui/Button';
 import { Avatar, Skeleton } from '../components/ui/misc';
+import { PlaylistPanel } from '../components/playlist/PlaylistPanel';
+import { SaveDialog } from '../components/playlist/SaveDialog';
 import { ChipBar } from '../components/video/ChipBar';
 import { OwnerActions } from '../components/video/OwnerActions';
 import { ShareDialog } from '../components/video/ShareDialog';
@@ -14,6 +16,7 @@ import { ApiError, apiGet, apiPost } from '../lib/api';
 import { formatRelative, formatViews } from '../lib/format';
 import { storage } from '../lib/storage';
 import type { Page, VideoDetail, VideoSummary } from '../lib/types';
+import { fetchPlaylist, playlistKey, playlistWatchUrl } from '../lib/playlistQueries';
 import { fetchVideo, videoKey, watchUrl } from '../lib/videoQueries';
 import type { Player } from '../player/Player';
 import { PlayerView, toUpNext } from '../player/PlayerView';
@@ -21,6 +24,92 @@ import { useSession } from '../stores/session';
 import { resumePosition, useWatch } from '../stores/watch';
 
 const isVideoId = (s: string) => /^[A-Za-z0-9_-]{11}$/.test(s);
+const isPlaylistId = (s: string) => /^PL[A-Za-z0-9_-]{22}$/.test(s);
+
+/** Status ulangi/acak per playlist di tab ini (sessionStorage). */
+function sessionGet<T>(key: string, fallback: T): T {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function sessionSet(key: string, value: unknown): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* abaikan */
+  }
+}
+function shuffled<T>(arr: T[], first?: T): T[] {
+  const a = arr.filter((x) => x !== first);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return first !== undefined ? [first, ...a] : a;
+}
+
+/** Mode playlist (list=): urutan (acak), ulangi, dan item sebelum/sesudah video aktif (SPEC §16.9). */
+function usePlaylistMode(listId: string, videoId: string, shuffleParam: boolean) {
+  const valid = isPlaylistId(listId);
+  const q = useQuery({
+    queryKey: playlistKey(listId),
+    queryFn: ({ signal }) => fetchPlaylist(listId, signal),
+    enabled: valid,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const [loop, setLoop] = useState(() => sessionGet(`dv.plloop.${listId}`, false));
+  const [shuffleIds, setShuffleIds] = useState<string[] | null>(() => sessionGet<string[] | null>(`dv.plshuffle.${listId}`, null));
+  const items = useMemo(() => q.data?.items ?? [], [q.data]);
+
+  useEffect(() => {
+    setLoop(sessionGet(`dv.plloop.${listId}`, false));
+    setShuffleIds(sessionGet<string[] | null>(`dv.plshuffle.${listId}`, null));
+  }, [listId]);
+  // "Acak" dari halaman playlist → buat urutan acak dimulai dari video ini.
+  useEffect(() => {
+    if (!shuffleParam || !items.length || shuffleIds) return;
+    const ids = shuffled(items.map((v) => v.id), videoId);
+    setShuffleIds(ids);
+    sessionSet(`dv.plshuffle.${listId}`, ids);
+  }, [shuffleParam, items, shuffleIds, listId, videoId]);
+
+  const order = useMemo(() => {
+    if (!shuffleIds) return items;
+    const byId = new Map(items.map((v) => [v.id, v]));
+    const ordered = shuffleIds.map((sid) => byId.get(sid)).filter((v): v is VideoSummary => Boolean(v));
+    // item yang baru ditambahkan setelah diacak → di belakang
+    for (const v of items) if (!shuffleIds.includes(v.id)) ordered.push(v);
+    return ordered;
+  }, [items, shuffleIds]);
+
+  const idx = order.findIndex((v) => v.id === videoId);
+  const inList = valid && idx >= 0;
+  const next = inList ? (order[idx + 1] ?? (loop ? order[0] : undefined)) : undefined;
+  const prev = inList ? (order[idx - 1] ?? (loop ? order[order.length - 1] : undefined)) : undefined;
+
+  const toggleLoop = () => {
+    setLoop((v) => {
+      sessionSet(`dv.plloop.${listId}`, !v);
+      return !v;
+    });
+  };
+  const toggleShuffle = () => {
+    if (shuffleIds) {
+      setShuffleIds(null);
+      sessionSet(`dv.plshuffle.${listId}`, null);
+    } else {
+      const ids = shuffled(items.map((v) => v.id), videoId);
+      setShuffleIds(ids);
+      sessionSet(`dv.plshuffle.${listId}`, ids);
+    }
+  };
+  const urlFor = (v: VideoSummary) => playlistWatchUrl(v.id, listId, order.indexOf(v) + 1) + (shuffleIds ? '&shuffle=1' : '');
+  return { detail: q.data, order, inList, next, prev, loop, shuffle: Boolean(shuffleIds), toggleLoop, toggleShuffle, urlFor };
+}
 
 /** "90", "1m30s", "1h2m3s" → detik. */
 export function parseT(raw: string | null): number | undefined {
@@ -100,6 +189,7 @@ function relatedQueryKey(id: string, chip: Chip) {
 export function WatchPage() {
   const [params] = useSearchParams();
   const id = params.get('v') ?? '';
+  const listId = params.get('list') ?? '';
   const tParam = parseT(params.get('t'));
   const navigate = useNavigate();
   const valid = isVideoId(id);
@@ -110,6 +200,8 @@ export function WatchPage() {
   const [theater, setTheater] = useState<boolean>(() => storage.get('dv.theater', false));
   const [chip, setChip] = useState<Chip>('all');
   const [sharing, setSharing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const pl = usePlaylistMode(listId, id, params.get('shuffle') === '1');
   const playerRef = useRef<Player | null>(null);
   const { prevId, seen } = useWatchNav(id);
 
@@ -152,10 +244,13 @@ export function WatchPage() {
   const listItems = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data]);
   const chipsInfo = allRelated.data?.pages[0]?.chips;
 
-  // Berikutnya = rekomendasi pertama yang belum ditonton di sesi ini.
-  const next = useMemo(() => allItems.find((v) => !seen.has(v.id)) ?? allItems[0], [allItems, seen]);
-  const nextRef = useRef(next);
-  nextRef.current = next;
+  // Berikutnya = item playlist berikutnya, atau rekomendasi pertama yang belum ditonton di sesi ini.
+  const relatedNext = useMemo(() => allItems.find((v) => !seen.has(v.id)) ?? allItems[0], [allItems, seen]);
+  const next = pl.next ?? relatedNext;
+  const nextUrl = pl.next ? pl.urlFor(pl.next) : relatedNext ? watchUrl(relatedNext.id) : null;
+  const nextUrlRef = useRef(nextUrl);
+  nextUrlRef.current = nextUrl;
+  const prevUrl = pl.prev ? pl.urlFor(pl.prev) : prevId ? watchUrl(prevId) : null;
   const upNext = useMemo(() => (next ? toUpNext(next) : null), [next]);
   const endscreenKey = allItems.slice(0, 8).map((v) => v.id).join();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -177,12 +272,13 @@ export function WatchPage() {
   }, [video?.id]);
 
   const goNext = useCallback(() => {
-    const n = nextRef.current;
-    if (n) navigate(watchUrl(n.id));
+    const u = nextUrlRef.current;
+    if (u) navigate(u);
   }, [navigate]);
+  const fromPlaylistPrev = Boolean(pl.prev);
   const goPrev = useCallback(() => {
-    if (prevId) navigate(watchUrl(prevId), { state: { dvPrev: true } });
-  }, [navigate, prevId]);
+    if (prevUrl) navigate(prevUrl, fromPlaylistPrev ? undefined : { state: { dvPrev: true } });
+  }, [navigate, prevUrl, fromPlaylistPrev]);
   const onSelect = useCallback((vid: string) => navigate(watchUrl(vid)), [navigate]);
   const onTheater = useCallback((on: boolean) => {
     setTheater(on);
@@ -242,7 +338,8 @@ export function WatchPage() {
         detail={shown}
         startAt={video ? startAt : undefined}
         hasNext={Boolean(next)}
-        hasPrev={Boolean(prevId)}
+        hasPrev={Boolean(prevUrl)}
+        playlistMode={Boolean(pl.next)}
         theater={theater}
         onTheater={onTheater}
         onNext={goNext}
@@ -292,6 +389,9 @@ export function WatchPage() {
                 <Button variant="tonal" icon="share" onClick={() => setSharing(true)}>
                   Bagikan
                 </Button>
+                <Button variant="tonal" icon="playlist-add" onClick={() => setSaving(true)}>
+                  Simpan
+                </Button>
               </div>
             </div>
             {video.processing && (
@@ -299,6 +399,7 @@ export function WatchPage() {
                 <Icon name="sync" /> Video ini masih diproses. Kualitas lain akan tersedia setelah selesai.
               </div>
             )}
+            <SaveDialog open={saving} onClose={() => setSaving(false)} videoId={video.id} />
             <ShareDialog open={sharing} onClose={() => setSharing(false)} video={video} currentTime={sharing ? (playerRef.current?.currentTime ?? 0) : 0} />
           </>
         ) : notFound || loadError ? null : (
@@ -315,6 +416,17 @@ export function WatchPage() {
       </div>
 
       <aside className="dv-watch__secondary" aria-label="Video berikutnya">
+        {pl.detail && pl.inList && (
+          <PlaylistPanel
+            detail={pl.detail}
+            order={pl.order}
+            currentId={id}
+            loop={pl.loop}
+            shuffle={pl.shuffle}
+            onToggleLoop={pl.toggleLoop}
+            onToggleShuffle={pl.toggleShuffle}
+          />
+        )}
         {!notFound && chips.length > 1 && (
           <div className="dv-watch__chips">
             <ChipBar chips={chips} selected={chip} onSelect={(c) => setChip(c as Chip)} sticky={false} />

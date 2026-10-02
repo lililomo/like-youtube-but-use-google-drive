@@ -10,6 +10,7 @@ import { settings } from '../settings/service.js';
 import { channelOf, toSummary, VIDEO_SELECT, type VideoRecord } from './model.js';
 import { loadWatchable } from './routes.js';
 import { decodeCursor, encodeCursor, escapeLike, jaccard, planSearch, relatedScore, type RelatedCandidate } from './search.js';
+import { summarizePlaylists, type PlaylistRow } from '../playlists/routes.js';
 
 const PAGE = 24;
 
@@ -249,9 +250,22 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
       [...scoreParams, `%${escapeLike(plan.phrase)}%`, ...params, ...lp, ...cp, limit + 1, offset],
     );
     const page = rows.slice(0, limit);
+    // Playlist publik yang judulnya cocok (hanya halaman pertama, maks 4).
+    let playlists: unknown[] = [];
+    if (!offset) {
+      const pl = await query<PlaylistRow>(
+        `SELECT p.id, p.public_id, p.title, p.owner_user_id, p.guest_hash, p.visibility, p.item_count, p.created_at, p.updated_at,
+                u.username AS owner_username, u.display_name AS owner_name
+           FROM playlists p JOIN users u ON u.id = p.owner_user_id
+          WHERE p.visibility = 'public' AND p.item_count > 0 AND p.title LIKE ?
+          ORDER BY p.item_count DESC, p.updated_at DESC LIMIT 4`,
+        [`%${escapeLike(plan.phrase)}%`],
+      );
+      playlists = await summarizePlaylists(pl, req.viewer);
+    }
     return {
       items: summarize(page, req.viewer),
-      playlists: [] as unknown[],
+      playlists,
       nextCursor: rows.length > limit && offset + limit <= 500 ? String(offset + limit) : null,
     };
   });
@@ -330,6 +344,19 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
       const order = q.sort === 'popular' ? 'v.view_count DESC, v.id DESC' : 'v.published_at DESC, v.id DESC';
       const rows = await query<Row>(`${sql} WHERE ${lw} AND v.owner_user_id <=> ? ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, ...lp, ownerId, PAGE + 1, offset]);
       items = summarize(rows.slice(0, PAGE), req.viewer);
+      nextCursor = rows.length > PAGE ? String(offset + PAGE) : null;
+    } else if (ownerId !== null) {
+      // Tab Playlist: playlist publik milik user (channel utama tidak punya playlist).
+      const offset = q.cursor ?? 0;
+      const rows = await query<PlaylistRow>(
+        `SELECT p.id, p.public_id, p.title, p.owner_user_id, p.guest_hash, p.visibility, p.item_count, p.created_at, p.updated_at,
+                u.username AS owner_username, u.display_name AS owner_name
+           FROM playlists p JOIN users u ON u.id = p.owner_user_id
+          WHERE p.owner_user_id = ? AND (p.visibility = 'public' OR p.owner_user_id = ?) AND p.item_count > 0
+          ORDER BY p.updated_at DESC LIMIT ? OFFSET ?`,
+        [ownerId, req.viewer.userId ?? -1, PAGE + 1, offset],
+      );
+      items = await summarizePlaylists(rows.slice(0, PAGE), req.viewer);
       nextCursor = rows.length > PAGE ? String(offset + PAGE) : null;
     }
     return { channel: { ...channel, videoCount: Number(countRow?.n ?? 0), joinedAt, isMain: ownerId === null }, items, nextCursor };

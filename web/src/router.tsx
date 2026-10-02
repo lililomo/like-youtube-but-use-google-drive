@@ -11,6 +11,7 @@ import { PlaceholderPage } from './pages/Placeholder';
 import { ResultsPage } from './pages/Results';
 import { HistoryPage } from './pages/History';
 import { YouPage } from './pages/You';
+import { MyPlaylistsPage, PublicPlaylistsPage } from './pages/Playlists';
 
 export const router = createBrowserRouter([
   {
@@ -21,9 +22,9 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <HomePage /> },
           { path: 'results', element: <ResultsPage /> },
-          { path: 'playlist', element: <PlaceholderPage title={t.nav.playlists} icon="playlist-play" /> },
-          { path: 'feed/playlists', element: <PlaceholderPage title={t.nav.playlists} icon="library" /> },
-          { path: 'feed/playlists/public', element: <PlaceholderPage title={t.nav.explorePlaylists} icon="explore" /> },
+          { path: 'playlist', lazy: () => import('./pages/Playlist').then((m) => ({ Component: m.PlaylistPage })) },
+          { path: 'feed/playlists', element: <MyPlaylistsPage /> },
+          { path: 'feed/playlists/public', element: <PublicPlaylistsPage /> },
           { path: 'feed/you', element: <YouPage /> },
           { path: 'feed/history', element: <HistoryPage /> },
           {

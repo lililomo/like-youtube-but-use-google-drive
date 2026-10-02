@@ -11,6 +11,8 @@ import { watchUrl } from '../lib/videoQueries';
 import { useSession } from '../stores/session';
 import { useWatch } from '../stores/watch';
 import type { HistoryVideo } from './History';
+import { PlaylistCard } from '../components/playlist/PlaylistCard';
+import { useMyPlaylists } from '../lib/playlistQueries';
 
 /** Kartu kecil di rak horizontal (lebar 210px seperti halaman "Anda" YouTube). */
 function ShelfCard({ video }: { video: HistoryVideo }) {
@@ -48,6 +50,8 @@ export function YouPage() {
     enabled: Boolean(user),
     staleTime: 0,
   });
+  const mine = useMyPlaylists();
+  const playlists = mine.data?.items ?? [];
   const recent = (user ? (history.data?.items ?? []) : (guestHistory as HistoryVideo[])).slice(0, 12);
 
   return (
@@ -86,7 +90,17 @@ export function YouPage() {
         )}
       </Shelf>
 
-      <div id="dv-you-playlists" />
+      <Shelf title="Playlist" to="/feed/playlists">
+        {playlists.length ? (
+          playlists.slice(0, 12).map((p) => (
+            <div key={p.id} className="dv-shelf__card dv-shelf__card--pl">
+              <PlaylistCard playlist={p} />
+            </div>
+          ))
+        ) : (
+          <p className="dv-text-secondary">Playlist yang Anda buat akan muncul di sini.</p>
+        )}
+      </Shelf>
 
       {user && (
         <section className="dv-shelf">

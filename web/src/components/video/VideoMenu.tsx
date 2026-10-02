@@ -4,6 +4,7 @@ import { watchUrl } from '../../lib/videoQueries';
 import { toast } from '../../stores/toast';
 import { IconButton } from '../ui/Button';
 import { MenuItem, Popup } from '../ui/Popup';
+import { SaveDialog } from '../playlist/SaveDialog';
 
 export async function copyText(text: string): Promise<void> {
   try {
@@ -37,14 +38,25 @@ export async function shareVideo(video: Pick<VideoSummary, 'id' | 'title'>): Pro
 /** Tombol ⋮ pada kartu video. */
 export function VideoMenu({ video }: { video: VideoSummary }) {
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   return (
     <>
+      {saving && <SaveDialog open onClose={() => setSaving(false)} videoId={video.id} />}
       <IconButton ref={anchor} icon="more-vert" label="Menu tindakan" tooltip={false} size={40} className="dv-video-menu-btn" onClick={(e) => {
         e.preventDefault();
         setOpen(!open);
       }} />
       <Popup open={open} onClose={() => setOpen(false)} anchorRef={anchor} align="right">
+        <MenuItem
+          icon="playlist-add"
+          onClick={() => {
+            setOpen(false);
+            setSaving(true);
+          }}
+        >
+          Simpan ke playlist
+        </MenuItem>
         <MenuItem
           icon="share"
           onClick={() => {

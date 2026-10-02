@@ -728,3 +728,16 @@
 .dv-row--between {
   justify-content: space-between;
 }
+
+/* Utilitas kecil */
+.dv-text {
+  color: var(--text);
+}
+.dv-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dv-p-16 {
+  padding: 16px;
+}

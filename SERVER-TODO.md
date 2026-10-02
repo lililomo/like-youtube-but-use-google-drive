@@ -119,13 +119,30 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** tidak ada perubahan konfigurasi server.
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-004 — Step 13 (playlist): npm ci paket baru + uji produksi
+- **Asal:** Step 13 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy (`deploy.sh` otomatis `npm ci` karena `package-lock.json` berubah: paket baru `@dnd-kit/*`)
+- **Butuh user:** tidak
+- **Kenapa:** pastikan `npm ci` di server berhasil mengambil paket baru (lockfile kini berisi campuran URL `registry.npmmirror.com` lama + `registry.npmjs.org` untuk @dnd-kit) dan fitur playlist berjalan di produksi.
+- **Langkah:**
+  ```bash
+  ls /www/wwwroot/video.dymas.cloud/node_modules/@dnd-kit   # core, sortable, utilities
+  bash scripts/dev/test-instance.sh start
+  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/playlist-test.mjs . && CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node playlist-test.mjs   # harus 18/18
+  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+  ```
+  Di https://video.dymas.cloud: Simpan video ke playlist baru (tamu & admin), buka /playlist?list=…, geser urutan, Putar semua.
+- **Verifikasi:** folder @dnd-kit ada; playlist-test 18/18; alur manual berjalan.
+- **Rollback:** bila `npm ci` gagal karena registry: `npm ci --registry=https://registry.npmmirror.com` (atau sebaliknya `--registry=https://registry.npmjs.org/`).
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 13–15** — Verifikasi fitur step di https://video.dymas.cloud setelah deploy (playlist, upload ≥ 1 GB ke Drive asli, panel admin).
+- **Step 14–15** — Verifikasi fitur step di https://video.dymas.cloud setelah deploy (upload ≥ 1 GB ke Drive asli, panel admin).
 - **Step 16** — `/etc/logrotate.d/video_dymas` (harian, simpan 14, copytruncate, compress).
 - **Step 16** — Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 (API `bt-api.py` atau UI).
 - **Step 16** — Cek gzip nginx global aaPanel mencakup `application/json`, `text/css`, `application/javascript`, `image/svg+xml`.

@@ -8,6 +8,7 @@ import { Snackbar } from '../ui/misc';
 import { Guide, GuideDrawer, MiniGuide, MobileNav } from './Guide';
 import { Masthead } from './Masthead';
 import { TopProgress } from './TopProgress';
+import { GuestImportPrompt } from '../playlist/GuestImportPrompt';
 
 /** Root: memuat sesi & efek situs, menampilkan snackbar global. */
 export function RootLayout() {
@@ -20,6 +21,7 @@ export function RootLayout() {
     <>
       <TopProgress />
       <Outlet />
+      <GuestImportPrompt />
       <Snackbar />
       <ScrollRestoration />
     </>

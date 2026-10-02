@@ -911,7 +911,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/channels/:handle` | publik | channel + `?tab=videos|playlists&cursor=` |
 | GET `/api/me/videos` | login | `?q=&visibility=&status=&cursor=` (Video Anda; semua status) |
 | POST `/api/uploads` · PUT/GET/DELETE `/api/uploads/:id` | login | §11 |
-| GET `/api/playlists/mine` | user/tamu | |
+| GET `/api/playlists/mine` | user/tamu | `{items, guestCount, guestAllowed}` — `guestCount` = playlist tamu di perangkat ini (tawaran impor setelah login) |
 | GET `/api/playlists/public` | publik | `?cursor=` |
 | POST `/api/playlists` | user/tamu | `{title, visibility?, videoId?}` |
 | GET `/api/playlists/:id` | §13 | detail + items (`hiddenCount`) |

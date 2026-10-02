@@ -54,18 +54,23 @@ export function ShareDialog({
   onClose,
   video,
   currentTime = 0,
+  playlistId,
 }: {
   open: boolean;
   onClose: () => void;
   video: { id: string; title: string };
   currentTime?: number;
+  /** Bagikan playlist (/playlist?list=) alih-alih video. */
+  playlistId?: string;
 }) {
   const [startAt, setStartAt] = useState(false);
-  const at = Math.floor(currentTime);
+  const at = playlistId ? 0 : Math.floor(currentTime);
   useEffect(() => {
     if (open) setStartAt(false);
   }, [open]);
-  const url = `${window.location.origin}${watchUrl(video.id, startAt && at > 0 ? { t: String(at) } : undefined)}`;
+  const url = playlistId
+    ? `${window.location.origin}/playlist?list=${encodeURIComponent(playlistId)}`
+    : `${window.location.origin}${watchUrl(video.id, startAt && at > 0 ? { t: String(at) } : undefined)}`;
   const nativeShare = typeof navigator.share === 'function';
 
   const copy = async () => {
