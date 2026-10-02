@@ -9,9 +9,15 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - Server dikelola **aaPanel**: project Node, database, SSL, nginx, cron dibuat/diubah lewat aaPanel (API `scripts/bt-api.py` atau instruksi UI ke user). Jangan pasang pm2/systemd/situs nginx sendiri.
 - Nginx tambahan **hanya** di `/www/server/panel/vhost/rewrite/node_video_dymas.conf` (sumber: `scripts/nginx-custom.conf`). Jangan edit vhost utama `node_video_dymas.conf` (bisa ditimpa aaPanel).
 - Node selalu dari `/www/server/nodejs/v24.18.0/bin` (tidak ada di PATH default).
+- **Repo ini ada di GitHub (private).** Jangan pernah commit password, token, `.env`, isi `/root/dv-qa/.dbpass`, atau ID/secret OAuth selain Client ID. Password admin hanya di `.env` server.
 - Jangan menulis secret ke file ini atau file lain di luar yang ditentukan SPEC: password root MySQL (ada di DB panel `/www/server/panel/data/default.db` → `config.mysql_root`), token API aaPanel (`/www/server/panel/config/api.json`), Client Secret / refresh token Google (tersimpan terenkripsi di tabel `settings`).
 - Claude berjalan sebagai root → setelah build/ubah file jalankan `chown -R www:www /www/wwwroot/video.dymas.cloud`.
 - Akhiri setiap step: build bersih, test lulus, deploy, update file ini, git commit lokal.
+
+## Di mana Claude sedang berjalan?
+- **Di server (`/www/wwwroot/video.dymas.cloud` ada, `/www/server/` ada):** semua aturan di atas berlaku penuh — bisa build, deploy (`bash scripts/deploy.sh`), akses DB, aaPanel, instance uji (`scripts/dev/test-instance.sh`).
+- **Di Claude cloud / mesin lain (tidak ada `/www/server/`):** tidak ada akses ke server, aaPanel, MariaDB produksi, maupun Google Drive. Yang bisa dikerjakan: menulis kode, `npm ci && npm test` (unit test server & web tidak butuh DB), `npm run typecheck`, `npm run build`. Abaikan aturan path `/www/server/...`; pakai Node ≥ 24 yang tersedia. Kerjakan di branch, push ke GitHub, lalu catat di Changelog bahwa perubahan **belum di-deploy**. Uji integrasi dengan fake Drive butuh MariaDB + ffmpeg (opsional: pasang sendiri di cloud, lihat `scripts/dev/`).
+- **Menerapkan perubahan dari GitHub ke server:** di server jalankan `bash scripts/pull-deploy.sh [branch]` (default `main`) — git pull (fast-forward saja) → build → migrate → restart aaPanel → health check. Lalu verifikasi di https://video.dymas.cloud dan perbarui Progres/Changelog.
 
 ## Status
 **Fase: eksekusi berjalan.** Lihat Progres di bawah.
@@ -86,15 +92,20 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Google Drive | **Terhubung** (OAuth) sebagai `dymassedhayu@gmail.com`; folder sumber **"Dymas Tube"** (`1m07wAiRimwzZ82rOSbaI9lxJ4U83PUCQ`, My Drive), folder sistem `_dymasvideo_system` (`1rgUPx7aR2wrTO-h81rtQ7oKqnT7YYDr0`) / `renditions` (`1RtLYZGu6CYeZJ3pwr3BqfFYzKKJdGE1z`). OAuth client project Google Cloud status **In production** (wajib; Testing → token kedaluwarsa 7 hari). Mode OAuth (default) · redirect URI `https://video.dymas.cloud/api/admin/drive/oauth/callback` · scope `drive openid email`, `access_type=offline`, `prompt=consent` · folder sistem `_dymasvideo_system/renditions` dibuat saat folder disimpan · halaman admin `/admin/settings/drive` · API: `/api/admin/drive/{status,oauth/start,oauth/callback,disconnect,service-account,test,folder}`, `GET /api/admin/settings`, `PUT /api/admin/settings/:group` (site, drive, processing, upload, player, security) |
 
 ## Kredensial (non-rahasia/permintaan user)
-- Admin aplikasi (awal): **admin / <lihat ADMIN_INITIAL_PASSWORD di .env server>** (seeder; jika diganti, catat bahwa sudah diganti — jangan tulis password baru).
+- Admin aplikasi: username **admin**; password awal = `ADMIN_INITIAL_PASSWORD` di `.env` server (tidak pernah ditulis di repo — repo ada di GitHub). Jika diganti lewat aplikasi, cukup catat "sudah diganti" di sini.
 - Database: host `localhost`, user `dummy`, password `dummy`, database `dummy` (disarankan diganti setelah stabil → ubah `.env`).
 - `.env` (mode 600, milik www) berisi `APP_KEY` — **jangan diubah setelah ada data** (dipakai enkripsi secret). Backup: `/root/backup/video_dymas.env` (Step 16).
 
 ## Lingkungan uji (tanpa menyentuh produksi)
 - Fake Google Drive: `scripts/dev/fake-drive.mjs` (port 3298, data `/root/dv-qa/fakedrive`), media sintetis `scripts/dev/make-test-media.sh` → `/root/dv-qa/media-src`.
 - Instance uji: `bash scripts/dev/test-instance.sh start [--reseed] | stop | reset-db` → app port **3299**, DB **`dummy_test`** (user `dummy_test`, password di `/root/dv-qa/.dbpass`, dibuat via aaPanel id 5), env `/root/dv-qa/env.test` (DRIVE_API_BASE/DRIVE_UPLOAD_BASE → fake, `DRIVE_FAKE_TOKEN`, `SERVE_STATIC=1`, admin `admin/admin12345`), storage `/root/dv-qa/storage-test`, log `/root/dv-qa/app.log`.
-- Helper curl: `source /root/dv-qa/api.sh; login; get /api/...; post /api/... '{json}'`.
+- Helper curl: `source /root/dv-qa/api.sh; login; get /api/...; post /api/... '{json}'`. Salinan skrip QA ada di `scripts/dev/qa/` (lihat README di sana).
 - Variabel env khusus uji (JANGAN di `.env` produksi): `DRIVE_API_BASE`, `DRIVE_UPLOAD_BASE`, `DRIVE_FAKE_TOKEN`, `SERVE_STATIC`, `DISABLE_SCHEDULER`, `DISABLE_WORKER`.
+
+## GitHub
+- Repo: **`like-youtube-but-use-google-drive`** (private) — remote `origin`, branch utama `main`.
+- Server memakai GitHub CLI `/root/bin/gh` (login akun pemilik; `gh auth setup-git` sebagai credential helper git).
+- Riwayat git dibersihkan dari password admin sebelum push pertama (2026-10-02).
 
 ## Helper aaPanel API
 ```bash
@@ -146,3 +157,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 9: feed/kategori/pencarian/saran/rekomendasi/tayangan/channel + OG meta; UI Beranda, Hasil, Channel, dropdown saran; diverifikasi via screenshot.
 - 2026-10-02 — Step 10: pemutar custom (kontrol, progress + storyboard, menu setelan, kualitas, subtitle, keyboard, gesture mouse & sentuh, layar penuh + orientasi, pemulihan error) + halaman Tonton dasar + `/dev/player`; diuji otomatis (keyboard, seek, double-tap akumulatif, ganti kualitas, URL rusak pulih, HEVC→compat, mobile).
 - 2026-10-02 — Step 5 selesai: OAuth client dipublikasikan (In production), Drive terhubung, folder "Dymas Tube" disimpan, folder sistem dibuat, full sync pertama sukses (folder masih kosong). Cek isi folder read-only: `node /root/dv-qa/drive-peek.mjs`.
+- 2026-10-02 — Persiapan GitHub: password admin dihapus dari dokumen & seluruh riwayat git (filter-branch), `scripts/pull-deploy.sh`, skrip QA disalin ke `scripts/dev/qa/`, panduan kerja dari Claude cloud.

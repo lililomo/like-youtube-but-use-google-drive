@@ -51,7 +51,7 @@ Ada tiga jenis pengunjung:
 | Membuat/mengelola user | ❌ | ❌ | ✅ |
 | Pengaturan Google Drive & situs | ❌ | ❌ | ✅ |
 
-Akun admin awal: **username `admin`**, **password `<lihat ADMIN_INITIAL_PASSWORD di .env server>`** (dibuat oleh seeder; bisa diganti dari halaman akun).
+Akun admin awal: **username `admin`**, password awal disimpan di `.env` server (`ADMIN_INITIAL_PASSWORD`), tidak dicatat di repo (dibuat oleh seeder; bisa diganti dari halaman akun).
 
 ---
 
@@ -233,7 +233,7 @@ Semua **P0** kecuali disebut lain.
 ## 10. Kriteria Penerimaan (ringkas)
 
 1. `https://video.dymas.cloud` dapat diakses dengan SSL valid, terdaftar sebagai Node Project di aaPanel, database `dummy` terlihat di menu Database aaPanel.
-2. Login `admin` / `<lihat ADMIN_INITIAL_PASSWORD di .env server>` berhasil; admin bisa membuat user.
+2. Login `admin` dengan password awal berhasil; admin bisa membuat user.
 3. Setelah Drive dihubungkan & folder diisi, semua video di folder (dan subfolder) tampil dengan judul = nama file, lengkap dengan thumbnail & durasi; file baru di Drive muncul ≤ 2 menit tanpa tindakan manual.
 4. Video bisa diputar & di-seek ke posisi mana pun tanpa mengunduh seluruh file; semua fitur pemutar §5.4 P0 berfungsi di desktop Chrome, Android Chrome, dan iOS Safari (dengan batasan iOS).
 5. User upload video 2 GB, koneksi diputus di tengah, upload berlanjut; file muncul di folder Drive; status privat dihormati (tidak terlihat oleh tamu/user lain, URL langsung menolak).

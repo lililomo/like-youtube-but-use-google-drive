@@ -114,7 +114,7 @@ Kerjakan STEP 3 — Auth & user (SPEC §12, §13, endpoint terkait di §14.2).
 4. plugins/access.ts: canWatch, canEditVideo, canViewPlaylist, canEditPlaylist, listableSql PERSIS SPEC §13 + unit test tabel kasus lengkap (tamu/user pemilik/user lain/admin × publik/privat × status).
 5. Helper audit log + GET /api/admin/audit.
 6. Helmet + CSP (SPEC §12), rate limit global.
-7. Uji dengan curl (simpan cookie): login admin/<lihat ADMIN_INITIAL_PASSWORD di .env server>, me, buat user "tes1", login tes1, akses /api/admin/* sebagai tes1 → 403, POST tanpa X-CSRF-Token → 403, 11x login salah → 429.
+7. Uji dengan curl (simpan cookie): login admin (password = ADMIN_INITIAL_PASSWORD di .env server), me, buat user "tes1", login tes1, akses /api/admin/* sebagai tes1 → 403, POST tanpa X-CSRF-Token → 403, 11x login salah → 429.
 8. Perbarui CLAUDE.md, centang Step 3, commit.
 ```
 

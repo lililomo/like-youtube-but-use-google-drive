@@ -293,7 +293,7 @@ FFPROBE_PATH=/usr/bin/ffprobe
 LOG_LEVEL=info
 
 ADMIN_USERNAME=admin
-ADMIN_INITIAL_PASSWORD=<lihat ADMIN_INITIAL_PASSWORD di .env server>
+ADMIN_INITIAL_PASSWORD=...          # rahasia, hanya di .env server (tidak di repo)
 ```
 Kunci turunan: `encKey = HKDF(APP_KEY, "dv-enc")`, `streamKey = HKDF(APP_KEY, "dv-stream")`, `stateKey = HKDF(APP_KEY, "dv-oauth-state")`.
 
