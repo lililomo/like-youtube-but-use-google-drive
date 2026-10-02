@@ -402,6 +402,13 @@ Ada masalah: <jelaskan apa yang terjadi, di halaman/perangkat apa, langkah untuk
 Baca CLAUDE.md lalu bagian SPEC yang relevan. Reproduksi dulu masalahnya (log aaPanel: /www/server/nodejs/vhost/logs/video_dymas.log, nginx: /www/wwwlogs/), temukan akar penyebab, perbaiki, tambahkan test bila memungkinkan, deploy, verifikasi di https://video.dymas.cloud, catat di Changelog CLAUDE.md, commit.
 ```
 
+## Prompt Terapkan Update dari GitHub (Claude di server, setelah bekerja dari Claude cloud)
+
+```text
+Terapkan update dari GitHub branch <branch> (default main) ke server.
+Ikuti protokol di SERVER-TODO.md: PULL_ONLY=1 bash scripts/pull-deploy.sh <branch> → kerjakan item terbuka "sebelum deploy" → bash scripts/deploy.sh → item "sesudah deploy" → verifikasi fitur yang berubah di https://video.dymas.cloud (lihat Changelog CLAUDE.md yang bertanda "belum di-deploy"). Tanya saya dulu untuk item bertanda 🧑. Tandai item selesai, perbarui CLAUDE.md, commit, lalu push. Laporkan hasil apa adanya.
+```
+
 ## Prompt Perubahan Fitur
 
 ```text
