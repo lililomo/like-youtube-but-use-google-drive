@@ -8,6 +8,7 @@ import { HomePage } from './pages/Home';
 import { LoginPage } from './pages/Login';
 import { NotFoundPage } from './pages/NotFound';
 import { PlaceholderPage } from './pages/Placeholder';
+import { ResultsPage } from './pages/Results';
 
 export const router = createBrowserRouter([
   {
@@ -17,7 +18,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <HomePage /> },
-          { path: 'results', element: <PlaceholderPage title="Hasil penelusuran" icon="search" /> },
+          { path: 'results', element: <ResultsPage /> },
           { path: 'playlist', element: <PlaceholderPage title={t.nav.playlists} icon="playlist-play" /> },
           { path: 'feed/playlists', element: <PlaceholderPage title={t.nav.playlists} icon="library" /> },
           { path: 'feed/playlists/public', element: <PlaceholderPage title={t.nav.explorePlaylists} icon="explore" /> },

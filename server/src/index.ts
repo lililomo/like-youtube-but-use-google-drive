@@ -4,6 +4,7 @@ import { closeDb } from './db.js';
 import { startMaintenance } from './modules/maintenance/tasks.js';
 import { startSyncScheduler, stopSyncScheduler } from './modules/sync/service.js';
 import { startWorker, stopWorker } from './modules/processing/worker.js';
+import { flushViews, startViewFlusher } from './modules/videos/public.js';
 
 const app = await buildApp();
 
@@ -17,6 +18,7 @@ async function shutdown(signal: string): Promise<void> {
   try {
     stopSyncScheduler();
     await stopWorker();
+    await flushViews();
     await app.close();
     await closeDb();
   } finally {
@@ -38,6 +40,7 @@ try {
   process.exit(1);
 }
 
+startViewFlusher();
 if (!config.DISABLE_WORKER) {
   await startWorker(app.log.child({ mod: 'worker' }));
 }
