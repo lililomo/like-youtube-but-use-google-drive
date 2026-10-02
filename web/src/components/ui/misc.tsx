@@ -63,7 +63,7 @@ export function TextField({ label, error, helper, trailing, className, id, ...re
   return (
     <div className={`dv-field${error ? ' has-error' : ''}${className ? ` ${className}` : ''}`}>
       <div className="dv-field__box">
-        <input id={inputId} className="dv-field__input" placeholder=" " aria-invalid={Boolean(error)} {...rest} />
+        <input id={inputId} className="dv-field__input" aria-invalid={Boolean(error)} {...rest} placeholder=" " />
         <label htmlFor={inputId} className="dv-field__label">
           {label}
         </label>

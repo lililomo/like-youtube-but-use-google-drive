@@ -9,6 +9,8 @@ import { auditRoutes } from './modules/audit/service.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { settings } from './modules/settings/service.js';
 import { siteRoutes } from './modules/site/routes.js';
+import { settingsRoutes } from './modules/settings/routes.js';
+import { driveRoutes } from './modules/drive/routes.js';
 import { userRoutes } from './modules/users/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerSpa } from './plugins/spa.js';
@@ -115,6 +117,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authRoutes);
   await app.register(userRoutes);
   await app.register(auditRoutes);
+  await app.register(settingsRoutes);
+  await app.register(driveRoutes);
 
   await registerSpa(app, { distDir: config.WEB_DIST_DIR });
 

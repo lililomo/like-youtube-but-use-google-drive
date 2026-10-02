@@ -276,3 +276,10 @@
 .dv-details[open] summary .dv-icon {
   transform: rotate(180deg);
 }
+
+.dv-link {
+  color: var(--cta);
+}
+.dv-link:hover {
+  text-decoration: underline;
+}

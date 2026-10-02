@@ -22,7 +22,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 2 — Database, migrasi, settings, kriptografi — 2026-10-02
 - [x] Step 3 — Auth, sesi, CSRF, tamu, manajemen user — 2026-10-02
 - [x] Step 4 — Fondasi frontend & design system YouTube — 2026-10-02
-- [ ] Step 5 — Integrasi Google Drive (🧑 user membuat kredensial)
+- [~] Step 5 — Integrasi Google Drive — kode selesai & diuji tanpa akun Google (2026-10-02); **menunggu user** membuat OAuth Client + menghubungkan + memilih folder, lalu verifikasi nyata (status terhubung, tes folder, folder `_dymasvideo_system/renditions` terbentuk)
 - [ ] Step 6 — Sinkronisasi folder
 - [ ] Step 7 — Streaming
 - [ ] Step 8 — Pemrosesan media (ffmpeg)
@@ -77,7 +77,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
 | Paket | npm workspaces (`server`, `web`); versi dipatok: TypeScript 5.9, Vite 7, React 19, react-router 7, Fastify 5, vitest 3, zod 4, undici 7, google-auth-library 10, sharp 0.34. `allowScripts` (npm 11) menyetujui esbuild & sharp |
-| Google Drive | OAuth (default) · redirect URI `https://video.dymas.cloud/api/admin/drive/oauth/callback` · folder sistem `_dymasvideo_system/renditions` |
+| Google Drive | Belum terhubung. Mode OAuth (default) · redirect URI `https://video.dymas.cloud/api/admin/drive/oauth/callback` · scope `drive openid email`, `access_type=offline`, `prompt=consent` · folder sistem `_dymasvideo_system/renditions` dibuat saat folder disimpan · halaman admin `/admin/settings/drive` · API: `/api/admin/drive/{status,oauth/start,oauth/callback,disconnect,service-account,test,folder}`, `GET /api/admin/settings`, `PUT /api/admin/settings/:group` (site, drive, processing, upload, player, security) |
 
 ## Kredensial (non-rahasia/permintaan user)
 - Admin aplikasi (awal): **admin / <lihat ADMIN_INITIAL_PASSWORD di .env server>** (seeder; jika diganti, catat bahwa sudah diganti — jangan tulis password baru).
@@ -126,3 +126,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 2: db.ts (pool mysql2), migrasi 001_init + runner, seeder admin, lib crypto/ids/password/errors, SettingsService (cache + enkripsi rahasia), `/api/health` cek DB; 13 unit test lulus.
 - 2026-10-02 — Step 3: plugin auth (sesi/CSRF/tamu), login/logout/me/password/PATCH me, API admin users (CRUD, reset password, proteksi admin terakhir & diri sendiri), audit log + `GET /api/admin/audit`, aturan akses `plugins/access.ts`, helmet+CSP+HSTS, rate-limit; 37 unit test lulus; diuji end-to-end via curl.
 - 2026-10-02 — Step 4: fondasi frontend — token tema YouTube, masthead + kotak Telusuri, guide/mini-guide/drawer/nav bawah mobile (breakpoint 1313/792/656), menu akun + submenu Tampilan, Login, Akun, 404, kerangka Studio admin (lazy), komponen UI (tombol, tooltip, popup, dialog, field, snackbar, skeleton, switch), `GET /api/site`; 30 unit test web; diverifikasi via screenshot vs youtube.com.
+- 2026-10-02 — Step 5 (kode): klien Drive REST (undici keep-alive, retry/backoff, refresh token, OAuth & Service Account), klasifikasi file + parser URL folder (32 test), alur OAuth (state di `oauth_states`), service account, validasi folder + folder sistem + start page token, statistik folder, endpoint settings generik; halaman Studio Pengaturan → Google Drive dengan panduan. Menunggu kredensial user.
