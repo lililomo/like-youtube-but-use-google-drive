@@ -75,7 +75,9 @@ if (!P) {
   console.log('Tidak ada video siap milik budi — jalankan upload-test dulu');
   process.exit(2);
 }
-await budi.patch(`/api/videos/${P.id}`, { visibility: 'private' });
+// Judul unik agar cek saran/pencarian tidak tertukar dengan video publik berjudul sama (mis. "Konser").
+P.title = `Rahasia Budi ${Date.now().toString(36)}`;
+await budi.patch(`/api/videos/${P.id}`, { visibility: 'private', title: P.title });
 const fd = new FormData();
 fd.append('lang', 'id');
 fd.append('file', new Blob(['1\n00:00:01,000 --> 00:00:02,000\nRAHASIA\n']), 'r.srt');

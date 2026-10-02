@@ -42,7 +42,59 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 14 — Upload & Video Anda — 2026-10-02 (Claude cloud, **belum di-deploy**; diuji API + browser 10/10 termasuk putus jaringan & reload, md5 identik; upload ≥ 1 GB ke Drive asli → SERVER-TODO ST-005)
 - [x] Step 15 — Panel admin lengkap — 2026-10-02 (Claude cloud, **belum di-deploy**; uji browser 29/29 termasuk akses user biasa/tamu ditolak)
 - [x] Step 16 — Keamanan, performa, operasional — 2026-10-02 (Claude cloud, **belum di-deploy**; audit keamanan + uji black-box 48/48, smoke 9/9, Lighthouse mobile lokal 88/91/94; logrotate, backup DB/`.env`, gzip & smoke produksi → SERVER-TODO ST-007)
-- [ ] Step 17 — QA akhir & serah terima
+- [~] Step 17 — QA akhir & serah terima — 2026-10-02 bagian cloud selesai (regresi otomatis lengkap, matriks 4 perangkat emulasi × 4 peran × 2 tema, dokumentasi, README serah terima); **belum di-deploy**; regresi di server, perbandingan YouTube & uji perangkat nyata → SERVER-TODO ST-008
+
+## QA akhir (Step 17)
+Diuji di Claude cloud 2026-10-02 (instance uji + fake Drive + MariaDB; Chromium saja — iPad/Android/iPhone = **emulasi** viewport/UA/sentuh, bukan Safari/Firefox asli).
+
+| Uji | Hasil |
+|---|---|
+| Unit test server / web | 136/136 · 44/44 |
+| `scripts/smoke.sh` (instance uji) | 9/9 |
+| `player-test3` · `watch-test` · `playlist-test` · `upload-test` · `admin-test` | 25/25 · 19/19 · 18/18 · 10/10 · 29/29 |
+| `security-test` (black-box keamanan) | 46/46 (jumlah cek bergantung jumlah subtitle video uji; Step 16: 48/48) |
+| `matrix-test` (desktop 1440, iPad Pro 11, Pixel 7, iPhone 14 × tamu/user A/user B/admin × gelap/terang) | 1128/1128 |
+| Lighthouse mobile lokal (beranda/tonton/hasil) | 88/91/94; aksesibilitas 100 |
+
+Matriks per kombinasi (✅ = semua cek lulus: tema benar, tanpa scroll horizontal, tanpa error JS, elemen P0 tiap halaman, aturan visibilitas PRD §6):
+
+| Perangkat (emulasi) | Tamu | User A (pemilik) | User B | Admin |
+|---|---|---|---|---|
+| Desktop Chrome 1440×900 | ✅ ✅ | ✅ ✅ | ✅ ✅ | ✅ ✅ |
+| iPad Pro 11 | ✅ ✅ | ✅ ✅ | ✅ ✅ | ✅ ✅ |
+| Android (Pixel 7) | ✅ ✅ | ✅ ✅ | ✅ ✅ | ✅ ✅ |
+| iPhone 14 | ✅ ✅ | ✅ ✅ | ✅ ✅ | ✅ ✅ |
+(kolom: gelap · terang). Halaman per kombinasi: beranda, tonton, video privat, hasil pencarian, playlist publik berisi video privat, Jelajahi Playlist, 404, Akun & Video Anda (login), `/admin` (diterima hanya admin).
+
+Kriteria Penerimaan PRD §10 — status per 2026-10-02:
+| # | Kriteria | Status |
+|---|---|---|
+| 1 | SSL, Node Project aaPanel, DB `dummy` di aaPanel | ✅ sejak Step 1–2 (produksi) |
+| 2 | Login admin, admin membuat user | ✅ produksi (Step 3); UI Pengguna Step 15 diuji cloud — produksi di ST-006 |
+| 3 | Video Drive tampil (judul, thumbnail, durasi), file baru ≤ 2 mnt | ✅ dengan fake Drive; Drive asli masih kosong → ST-003/ST-008 |
+| 4 | Putar & seek tanpa unduh penuh; pemutar P0 di Chrome desktop, Android, iOS | ✅ Chrome desktop + emulasi; HP nyata → ST-002/ST-008 🧑 |
+| 5 | Upload 2 GB, putus-sambung, privat dihormati | ✅ 40 MB + putus/reload di cloud; ≥ 1 GB ke Drive asli → ST-005 🧑 |
+| 6 | Playlist tamu; playlist publik user terlihat tamu | ✅ (playlist-test, matrix-test) |
+| 7 | Screenshot berdampingan dengan YouTube setara | ⏳ youtube.com tidak terjangkau dari cloud → ST-008 |
+| 8 | CLAUDE.md berisi semua konfigurasi aktual | ✅ (perlu diperbarui Claude server setelah deploy) |
+
+## Arsitektur aktual
+```
+Browser (SPA React 19, tema terang/gelap, pemutar vanilla TS)
+   │ HTTPS
+nginx aaPanel (SSL Let's Encrypt, gzip) ── /assets/* → web/dist/assets (immutable) · /media/* → storage/public (immutable) · /internal/ → 404
+   │ proxy 127.0.0.1:3210
+Fastify 5 (Node Project aaPanel `video_dymas`, user www)
+   ├─ /api/*      auth (sesi dv_sid, CSRF dv_csrf, tamu dv_gid), feed/cari/rekomendasi, tonton & histori, playlist,
+   │              upload resumable (stream ke Drive), admin (Studio), settings terenkripsi
+   ├─ /stream/*   URL bertanda tangan → proxy Range ke Google Drive (undici keep-alive, retry)
+   ├─ index.html  + injeksi nama/logo/favicon/OG (plugins/spa.ts)
+   ├─ penjadwal   sinkron incremental (Changes API) / full, pemeliharaan per jam
+   └─ worker      job probe/thumbnail/media/delete_assets (ffprobe, ffmpeg, sharp) → storage/public + rendition ke Drive
+MariaDB `dummy` (socket /tmp/mysql.sock, 15 tabel + avatar_key) · storage/{public,cache,tmp}
+Google Drive: folder sumber (video, subfolder = kategori, subtitle) + `_dymasvideo_system/renditions`
+```
+Kode: `server/src/{app.ts,config.ts,db.ts,lib/,plugins/(auth,access,spa),modules/(admin,audit,auth,branding,drive,history,playlists,processing,settings,site,stream,subtitles,sync,uploads,users,videos)}` · `web/src/{router.tsx,pages/,pages/admin/,components/,player/,stores/,hooks/,lib/,styles/,i18n/id.ts}`.
 
 ## Infrastruktur (diverifikasi 2026-10-02)
 | Item | Nilai |
@@ -136,7 +188,10 @@ SKIP_BUILD=1 bash scripts/deploy.sh # restart saja
 python3 scripts/bt-api.py /project/nodejs/restart_project/json 'data={"project_name":"video_dymas"}'
 tail -f /www/server/nodejs/vhost/logs/video_dymas.log
 curl -fsS https://video.dymas.cloud/api/health
+bash scripts/smoke.sh                                 # smoke produksi (SMOKE_PASS bila password admin sudah diganti)
+bash scripts/pull-deploy.sh <branch>                  # tarik dari GitHub + deploy (PULL_ONLY=1 = tarik saja)
 ```
+Sinkron manual: Studio → Dasbor → **Sinkronkan sekarang** (incremental) atau Pengaturan → Google Drive → kartu Sinkronisasi (full); API `POST /api/admin/sync/run {"mode":"full"|"incremental"}` (sesi admin + CSRF).
 Nginx custom: edit `scripts/nginx-custom.conf` → `cp scripts/nginx-custom.conf /www/server/panel/vhost/rewrite/node_video_dymas.conf && /www/server/nginx/sbin/nginx -t && /etc/init.d/nginx reload`.
 
 ### Catatan aaPanel penting
@@ -144,6 +199,25 @@ Nginx custom: edit `scripts/nginx-custom.conf` → `cp scripts/nginx-custom.conf
 - **Jangan klik "Install modules"/install_packages untuk project ini di UI aaPanel**: aaPanel memakai `yarn install` dan MENGHAPUS `package-lock.json`. Kalau terlanjur: `cp /root/backup/video_dymas.package-lock.json package-lock.json` (atau dari git), hapus `yarn.lock`, `npm ci`.
 - Skrip start aaPanel hanya mengarahkan **stdout** ke log (`2>&1 >> log`), jadi pesan fatal aplikasi ditulis ke stdout.
 - **Bug aaPanel 8.0.6** (`class/projectModel/nodejsModel.py` `get_project_stat`): `project_config` direset ke `{}` sebelum dibaca → `KeyError: 'port'` ketika project Node yang dijalankan aaPanel sedang listen. Akibatnya `get_project_list` (API maupun halaman *Node Project* di UI aaPanel) gagal (balasan 404 samaran). Belum ditambal — menunggu keputusan user (menambal file aaPanel butuh izin). Fungsi lain (restart/stop/start, SSL) tetap berfungsi.
+
+## Troubleshooting
+| Gejala | Penyebab umum | Tindakan |
+|---|---|---|
+| Semua video gagal diputar, log `invalid_grant`, Dasbor kartu Google Drive bertitik merah + pesan error | Refresh token dicabut/kedaluwarsa (mis. OAuth app kembali "Testing", password Google diganti) | Studio → Pengaturan → Google Drive → **Putuskan** → **Hubungkan** lagi dengan akun yang sama; pastikan OAuth consent screen **In production**. Folder & data tetap |
+| Sebagian video gagal diputar saat ramai, log `403 downloadQuotaExceeded` / `userRateLimitExceeded` | Kuota unduh Drive per file/24 jam atau rate limit API | Tunggu (kuota pulih ±24 jam); pastikan rendition 720p/360p ada (pemutar Otomatis memilih yang lebih kecil); kurangi share link video yang viral. Klien sudah retry/backoff |
+| Video baru di Drive tidak muncul | Folder diawali `_`/`.`, ekstensi tidak didukung, sinkron error | Dasbor → status sinkron & pesan error; Sinkronkan sekarang; `GET /api/admin/sync/status`; log aplikasi |
+| Status "Memproses" lama / "Gagal diproses" | ffmpeg gagal, file rusak, disk penuh (job ditunda 30 mnt) | Studio → **Antrean**: lihat error → Coba lagi / Proses ulang (Studio → Video). File asli tetap bisa diputar bila formatnya didukung browser |
+| Disk hampir penuh (Dasbor merah) | `storage/tmp` sisa konversi, banyak storyboard/thumbnail | `du -sh storage/*`; tmp > 24 jam dihapus otomatis tiap jam; hapus manual `storage/tmp/*` saat tidak ada job heavy berjalan; naikkan disk atau turunkan daftar rendition |
+| Aplikasi mati / 502 | Crash, OOM, deploy gagal | `tail -100 /www/server/nodejs/vhost/logs/video_dymas.log`; `SKIP_BUILD=1 bash scripts/deploy.sh` (restart); cek `/api/health` (`db:false` → MariaDB) |
+| Login ditolak "Terlalu banyak percobaan login" | Rate limit login (10 gagal/15 mnt per IP & per username) | Tunggu 15 menit atau restart aplikasi (limiter in-memory) |
+| Lupa password admin (tidak ada admin lain) | — | Di server: `cd /www/wwwroot/video.dymas.cloud; read -rsp 'Password baru: ' PW; echo; H=$(PW="$PW" /www/server/nodejs/v24.18.0/bin/node -e "import('./server/dist/lib/password.js').then(async m=>console.log(await m.hashPassword(process.env.PW)))"); /www/server/mysql/bin/mysql -S /tmp/mysql.sock -u dummy -p dummy -e "UPDATE users SET password_hash='$H', status='active' WHERE username='admin'; DELETE FROM sessions WHERE user_id=(SELECT id FROM users WHERE username='admin');"` (min. 8 karakter) |
+| Halaman Node Project aaPanel error / 404 | Bug aaPanel 8.0.6 `get_project_list` (lihat Catatan aaPanel) | Pakai restart via API/`deploy.sh`; aplikasi tidak terpengaruh |
+| `package-lock.json` hilang / `yarn.lock` muncul | Tombol "Install modules" aaPanel | `git checkout package-lock.json && rm -f yarn.lock && npm ci` |
+| Upload user gagal "kuota" | Kuota user (Studio → Pengguna) atau batas ukuran (Pengaturan → Upload) | Naikkan kuota/batas |
+
+## Belum dikerjakan
+- **P2 (sesuai PRD, sengaja ditunda):** preview storyboard animasi saat hover thumbnail kartu; "Statistik" di menu klik kanan pemutar; miniplayer; timer tidur; playlist khusus "Tonton nanti"; cache disk lokal untuk video populer; chip "Terbaru diupload" (opsional SPEC §17).
+- **Menunggu server/user:** semua item terbuka di SERVER-TODO.md (deploy Step 11–17, operasional ST-007, uji perangkat nyata & perbandingan YouTube ST-002/ST-003/ST-008). Tambalan bug aaPanel `get_project_list` menunggu izin user.
 
 ## Keputusan
 Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama eksekusi dicatat di sini dengan tanggal & alasan.
@@ -161,6 +235,8 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Saat video publik dijadikan privat, key aset publik dirotasi (nama file thumbnail/og/storyboard baru), karena `/media/` disajikan nginx tanpa cek akses. URL lama yang sempat tersebar menjadi 404. Cache browser/proxy yang sudah menyimpan gambar lama tidak bisa ditarik (immutable 30 hari) — trade-off yang diterima.
 - 2026-10-02 — Foto profil hanya menerima gambar raster (SVG ditolak). Logo/favicon tetap menerima SVG karena di-raster ke PNG.
 - 2026-10-02 — Target Lighthouse ≥ 85 diukur di cloud dengan proxy gzip lokal (bukan produksi). Angka produksi bisa berbeda karena latensi jaringan & Drive; pengukuran produksi ada di ST-007.
+- 2026-10-02 — Admin di halaman publik (beranda, cari, channel, playlist) memakai filter yang sama dengan user biasa (SPEC §13), jadi video privat milik orang lain tidak muncul di daftar publik admin — admin melihat & mengelolanya di Studio → Video dan tetap bisa membuka URL tontonnya. PRD §6.2 ("hanya pemilik dan admin") dibaca sebagai batas siapa yang *boleh* melihat, bukan kewajiban menampilkannya di semua daftar.
+- 2026-10-02 — Dasbor "Video teratas" hanya menampilkan video siap yang pernah ditonton (sebelumnya video gagal/belum ditonton ikut tampil bila video sedikit).
 - 2026-10-02 — Limiter login per-username bisa dipakai pihak lain untuk mengunci akun selama 15 menit (trade-off SPEC). Darurat: restart aplikasi (`SKIP_BUILD=1 bash scripts/deploy.sh`) mengosongkan limiter.
 
 ## Changelog
@@ -188,3 +264,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — (Claude cloud, **belum di-deploy**) Step 14: upload resumable lewat server (chunk di-stream tanpa buffering), finalize aman terhadap sinkron, kuota, subtitle per video, Video Anda gaya Studio, UploadManager (paralel, retry, lanjut setelah reload), hapus user menyentuh Drive. Uji 10/10 (offline di tengah upload & reload, md5 identik).
 - 2026-10-02 — (Claude cloud, **belum di-deploy**) Step 15: dasbor, pengguna, video (filter + aksi massal + pindah kategori), playlist, pengaturan Upload/Pemutar/Keamanan, log aktivitas dengan filter. Uji 29/29.
 - 2026-10-02 — (Claude cloud, **belum di-deploy**) Step 16: audit keamanan (tanpa temuan berkeyakinan tinggi) + pengerasan (listableSql tamu, rotasi key aset saat privat, avatar SVG ditolak), hook cache API + ETag/304, uji black-box `security-test.mjs` 48/48, `scripts/smoke.sh` (9/9 di instance uji), `scripts/ops/logrotate-video_dymas.conf`, perbaikan CLS beranda mobile & aksesibilitas (Lighthouse lokal 88/91/94). Operasional server (logrotate, cron backup, `.env` backup, gzip, smoke produksi, auto start) → SERVER-TODO ST-007.
+- 2026-10-02 — (Claude cloud, **belum di-deploy**) Step 17 (bagian cloud): regresi lengkap (unit 136+44, smoke 9/9, QA 25/19/18/10/29, keamanan 46/46), skrip baru `scripts/dev/qa/matrix-test.mjs` (4 perangkat emulasi × 4 peran × 2 tema), README.md (panduan pemilik/serah terima), CLAUDE.md: arsitektur aktual, QA akhir, troubleshooting, daftar belum dikerjakan. Perbaikan: dasbor "Video teratas" hanya video siap yang pernah ditonton; skrip uji memakai judul unik untuk video privat. Sisa (server & perangkat nyata) → SERVER-TODO ST-008.

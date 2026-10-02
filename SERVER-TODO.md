@@ -215,13 +215,50 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** `rm /etc/logrotate.d/video_dymas`; hapus cron di aaPanel; kembalikan `scripts/nginx-custom.conf` dari git lalu pasang ulang & reload nginx.
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-008 — Step 17 (QA akhir): regresi di server, perbandingan YouTube, uji perangkat nyata, serah terima
+- **Asal:** Step 17 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy, **setelah ST-001 s/d ST-007 selesai**
+- **Butuh user:** 🧑 ya — uji di perangkat nyata (checklist langkah 4) dan konfirmasi hasilnya. Langkah 1–3 tidak butuh user.
+- **Kenapa:** di Claude cloud hanya ada Chromium (iPhone/iPad/Android = emulasi, bukan Safari/Firefox asli), youtube.com tidak bisa dibuka, dan tidak ada Drive asli. Kriteria Penerimaan PRD §10 (1, 3, 4, 5, 7) hanya bisa dibuktikan di sini.
+- **Langkah:**
+  1. Regresi di instance uji server (urutan penting — `security-test` terakhir karena mengunci login 127.0.0.1):
+     ```bash
+     cd /www/wwwroot/video.dymas.cloud && export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
+     npm test && bash scripts/dev/test-instance.sh start
+     BASE=http://127.0.0.1:3299 SMOKE_PASS=admin12345 bash scripts/smoke.sh
+     cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/*.mjs . && export CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome
+     source /root/dv-qa/api.sh && login && post /api/admin/users '{"username":"budi","displayName":"Budi Santoso","password":"budi12345"}'   # bila budi belum ada (409 = sudah ada)
+     for t in player-test3 watch-test playlist-test admin-test; do node $t.mjs | tail -1; done
+     node upload-test.mjs media-src/Musik/Live/Konser.webm <file-acak-40MB>      # head -c 41943040 /dev/urandom > /root/dv-qa/big.mp4
+     QA_DIR=/www/wwwroot/video.dymas.cloud/storage/qa node matrix-test.mjs | tail -1   # 1128/1128 di cloud
+     node security-test.mjs | tail -1
+     bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+     ```
+     Hasil cloud (2026-10-02): smoke 9/9, player-test3 25/25, watch 19/19, playlist 18/18, admin 29/29, upload 10/10, matrix 1128/1128, security 48/48 — angka di server harus sama.
+  2. Smoke produksi: `bash scripts/smoke.sh` → `0 gagal`.
+  3. Screenshot berdampingan aplikasi produksi vs youtube.com (beranda, tonton, mode bioskop, pencarian, playlist; desktop 1440×900 & mobile 412×915; gelap & terang) dengan `shot.mjs` + `yt.mjs` → simpan di `storage/qa/` (tidak disajikan nginx). Perbaiki selisih tata letak/jarak/ukuran font/warna yang terlihat, commit + push.
+  4. 🧑 Minta user menguji di perangkat nyata dengan checklist ini (ditambah checklist pemutar ST-002), catat ✅/❌ per perangkat: **Firefox desktop, Safari macOS (bila ada), Android Chrome, iPhone Safari, iPad Safari**.
+     - [ ] Beranda: kartu & chip kategori tampil, scroll tak berujung, tema Gelap/Terang/Ikuti perangkat dari menu akun.
+     - [ ] Login (dengan & tanpa "Ingat saya"), logout.
+     - [ ] Tonton: putar dalam ≤ ±2 dtk, lompat ke tengah video tanpa menunggu unduhan, ganti kualitas, subtitle, layar penuh (HP: otomatis landscape; iPhone: pemutar bawaan iOS), double-tap ±10 dtk, tahan = 2x, autoplay berikutnya.
+     - [ ] Tamu: Simpan → Buat playlist baru → video tersimpan; playlist hanya ada di perangkat itu; setelah login muncul tawaran impor.
+     - [ ] User: Upload dari HP (galeri) sebagai **Privat** → status Memproses → Siap; URL-nya dibuka dari perangkat lain tanpa login → "Video tidak tersedia".
+     - [ ] User: playlist **Publik** → terlihat di Jelajahi Playlist dari perangkat lain.
+     - [ ] Bagikan → WhatsApp/Salin link membuka video yang benar (dengan "Mulai pada").
+     - [ ] Admin di tablet/desktop: Dasbor, Pengguna (buat user), Video (ubah visibilitas), Pengaturan → Situs (ganti nama → langsung berubah).
+  5. Isi tabel Kriteria Penerimaan PRD §10 (1–8) di CLAUDE.md bagian *QA akhir* dengan hasil produksi; perbaiki semua ❌.
+  6. Centang Step 17 di CLAUDE.md (ubah dari `[~]`), ubah catatan "belum di-deploy" Step 11–17 menjadi "sudah di-deploy", commit + push. Sampaikan ringkasan serah terima ke user (README.md bagian *Panduan singkat pemilik*).
+- **Verifikasi:** semua angka regresi sama dengan hasil cloud; smoke produksi 0 gagal; checklist perangkat nyata ✅ (❌ diperbaiki atau dicatat sebagai keterbatasan browser); tabel PRD §10 lengkap.
+- **Rollback:** tidak ada perubahan konfigurasi server.
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 17** — Matriks QA di produksi + uji perangkat nyata (🧑).
+_(kosong — semua step sudah di-push; item baru ditambahkan bila ada perubahan kode berikutnya)_
 
 ---
 

@@ -67,7 +67,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         `SELECT j.id, j.type, j.progress, j.locked_at AS started_at, v.public_id, v.title FROM jobs j LEFT JOIN videos v ON v.id = j.video_id
           WHERE j.status = 'running' ORDER BY j.locked_at`,
       ),
-      query<VideoRecord>(`${VIDEO_SELECT} WHERE v.deleted_at IS NULL ORDER BY v.view_count DESC, v.id DESC LIMIT 5`),
+      // Video teratas: hanya yang siap & pernah ditonton (video gagal/belum ditonton bukan "teratas").
+      query<VideoRecord>(`${VIDEO_SELECT} WHERE v.deleted_at IS NULL AND v.status = 'ready' AND v.view_count > 0 ORDER BY v.view_count DESC, v.id DESC LIMIT 5`),
       query<VideoRecord>(`${VIDEO_SELECT} WHERE v.deleted_at IS NULL AND v.source = 'upload' ORDER BY v.published_at DESC, v.id DESC LIMIT 5`),
     ]);
     const count = (pred: (r: { status: string; visibility: string }) => boolean) => vids.filter(pred).reduce((a, r) => a + Number(r.n), 0);

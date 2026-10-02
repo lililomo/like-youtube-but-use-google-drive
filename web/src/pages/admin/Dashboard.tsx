@@ -206,7 +206,7 @@ export function DashboardPage() {
       <div className="dv-dashboard__grid dv-dashboard__grid--2">
         <section className="dv-studio-card">
           <h2 className="dv-studio-card__title">Video teratas</h2>
-          {s.topVideos.length === 0 && <p className="dv-text-secondary">Belum ada video.</p>}
+          {s.topVideos.length === 0 && <p className="dv-text-secondary">Belum ada video yang ditonton.</p>}
           {s.topVideos.map((v, i) => (
             <Link key={v.id} to={watchUrl(v.id)} className="dv-dashboard__vid">
               <span className="dv-dashboard__rank">{i + 1}</span>
