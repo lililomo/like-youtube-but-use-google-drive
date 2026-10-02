@@ -123,6 +123,7 @@ const server = createServer(async (req, res) => {
       const f = state.files[p.get('id')];
       if (!f) return err(res, 404, 'notFound', 'not found');
       if (path === '/_ctl/trash') f.trashed = true;
+      if (path === '/_ctl/untrash') f.trashed = false;
       if (path === '/_ctl/rename') f.name = p.get('name');
       if (path === '/_ctl/move') f.parents = [p.get('parent')];
       f.modifiedTime = now();

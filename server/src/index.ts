@@ -1,6 +1,8 @@
 import { buildApp } from './app.js';
 import { config } from './config.js';
 import { closeDb } from './db.js';
+import { startMaintenance } from './modules/maintenance/tasks.js';
+import { startSyncScheduler, stopSyncScheduler } from './modules/sync/service.js';
 
 const app = await buildApp();
 
@@ -12,6 +14,7 @@ async function shutdown(signal: string): Promise<void> {
   const force = setTimeout(() => process.exit(1), 10_000);
   force.unref();
   try {
+    stopSyncScheduler();
     await app.close();
     await closeDb();
   } finally {
@@ -31,4 +34,9 @@ try {
 } catch (err) {
   app.log.fatal({ err }, 'gagal listen');
   process.exit(1);
+}
+
+if (!config.DISABLE_SCHEDULER) {
+  startSyncScheduler(app.log.child({ mod: 'sync' }));
+  startMaintenance(app.log.child({ mod: 'maintenance' }));
 }

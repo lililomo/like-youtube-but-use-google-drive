@@ -37,6 +37,83 @@ interface FolderStats {
 
 const KEY = ['admin', 'drive', 'status'];
 
+interface SyncStatus {
+  canSync: boolean;
+  running: 'full' | 'incremental' | null;
+  pendingFullAt: string | null;
+  last: { mode: string; finishedAt: string | null; added: number; updated: number; restored: number; missing: number; subtitles: number; error?: string } | null;
+  lastSyncAt: string | null;
+  lastFullSyncAt: string | null;
+  lastError: string | null;
+  videos: { total: number; ready: number; pending: number; processing: number; failed: number; missing: number };
+  categories: number;
+}
+
+function SyncCard() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ['admin', 'sync'],
+    queryFn: () => apiGet<SyncStatus>('/admin/sync/status'),
+    refetchInterval: (q) => (q.state.data?.running ? 2000 : 15000),
+  });
+  const run = useMutation({
+    mutationFn: (mode: 'full' | 'incremental') => apiPost('/admin/sync/run', { mode }),
+    onSuccess: () => {
+      toast('Sinkronisasi dimulai');
+      setTimeout(() => void qc.invalidateQueries({ queryKey: ['admin', 'sync'] }), 500);
+    },
+    onError: (err) => toast(errorMessage(err)),
+  });
+  if (!data) return null;
+  const v = data.videos;
+  return (
+    <Card title="Sinkronisasi" subtitle="Perubahan di Drive dicek otomatis secara berkala; sinkronisasi penuh berjalan sesuai jadwal di bawah.">
+      <dl className="dv-kv">
+        <dt>Status</dt>
+        <dd>
+          {data.running ? (
+            <>
+              <Spinner size={16} /> Sedang sinkronisasi ({data.running === 'full' ? 'penuh' : 'perubahan'})…
+            </>
+          ) : data.canSync ? (
+            'Siap'
+          ) : (
+            'Belum bisa — hubungkan Drive & pilih folder'
+          )}
+        </dd>
+        <dt>Video</dt>
+        <dd>
+          {v.total.toLocaleString('id-ID')} total · {v.ready} siap · {v.pending + v.processing} diproses · {v.failed} gagal · {v.missing} hilang
+        </dd>
+        <dt>Kategori</dt>
+        <dd>{data.categories}</dd>
+        <dt>Sinkron penuh terakhir</dt>
+        <dd>{data.lastFullSyncAt ? formatDateTime(data.lastFullSyncAt) : '—'}</dd>
+        <dt>Cek perubahan terakhir</dt>
+        <dd>{data.lastSyncAt ? formatDateTime(data.lastSyncAt) : '—'}</dd>
+        {data.last && (
+          <>
+            <dt>Hasil terakhir</dt>
+            <dd>
+              {data.last.error
+                ? `Gagal: ${data.last.error}`
+                : `+${data.last.added} baru, ${data.last.updated} diperbarui, ${data.last.restored} dipulihkan, ${data.last.missing} hilang, ${data.last.subtitles} subtitle`}
+            </dd>
+          </>
+        )}
+      </dl>
+      <div className="dv-row" style={{ marginTop: 16 }}>
+        <Button variant="tonal" icon="sync" disabled={!data.canSync || Boolean(data.running) || run.isPending} onClick={() => run.mutate('full')}>
+          Sinkronkan sekarang
+        </Button>
+        <Button variant="text" disabled={!data.canSync || Boolean(data.running) || run.isPending} onClick={() => run.mutate('incremental')}>
+          Cek perubahan saja
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 async function copy(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -297,6 +374,8 @@ export function DriveSettingsPage() {
         </div>
         {stats && <StatsView stats={stats} />}
       </Card>
+
+      <SyncCard />
 
       <Card
         title="Metode autentikasi"

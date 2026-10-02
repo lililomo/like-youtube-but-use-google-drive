@@ -10,6 +10,7 @@ import { settings } from '../settings/service.js';
 import { parseFolderInput } from './classify.js';
 import { about, DriveError, driveAuth, newOAuthClient, OAUTH_SCOPES, REDIRECT_URI, revokeToken } from './client.js';
 import { configureRootFolder, driveStatus, folderStats } from './service.js';
+import { runSync } from '../sync/service.js';
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 const SETTINGS_PAGE = '/admin/settings/drive';
@@ -174,6 +175,7 @@ export async function driveRoutes(app: FastifyInstance): Promise<void> {
     try {
       const result = await configureRootFolder(folderId);
       await audit(req, 'drive.folder', { type: 'drive_folder', id: folderId }, { name: result.folder.name, changed: result.changed });
+      void runSync('full');
       return { ...result, status: driveStatus() };
     } catch (err) {
       if (err instanceof DriveError) throw badRequest(err.message);

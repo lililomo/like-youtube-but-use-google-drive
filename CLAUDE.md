@@ -23,7 +23,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 3 — Auth, sesi, CSRF, tamu, manajemen user — 2026-10-02
 - [x] Step 4 — Fondasi frontend & design system YouTube — 2026-10-02
 - [~] Step 5 — Integrasi Google Drive — kode selesai & diuji tanpa akun Google (2026-10-02); **menunggu user** membuat OAuth Client + menghubungkan + memilih folder, lalu verifikasi nyata (status terhubung, tes folder, folder `_dymasvideo_system/renditions` terbentuk)
-- [ ] Step 6 — Sinkronisasi folder
+- [x] Step 6 — Sinkronisasi folder — 2026-10-02 (diuji dengan fake Drive; verifikasi ulang dengan Drive asli setelah Step 5 terhubung)
 - [ ] Step 7 — Streaming
 - [ ] Step 8 — Pemrosesan media (ffmpeg)
 - [ ] Step 9 — Beranda, pencarian, kategori, channel
@@ -73,6 +73,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Frontend | React 19 SPA (`web/src`): router `router.tsx` (layout Root → App/Watch/Bare; `/admin/*` lazy chunk `pages/admin/AdminApp`), design token `styles/tokens.css` (tema terang/gelap via `html[data-theme]`, skrip anti-kedip `public/theme-init.js`), CSS global `styles/{base,ui,layout,pages,admin}.css` (prefix `dv-`), ikon SVG inline `components/icons/Icon.tsx` (Material Icons), teks UI `i18n/id.ts`. Bundle awal ±130 KB gzip |
 | Build web | `vite build` dengan `emptyOutDir:false` (aset lama dipertahankan, deploy menghapus aset > 7 hari); `index.html` dibaca ulang server bila berubah |
 | QA screenshot | `/root/dv-qa/shot.mjs` (playwright-core + Chromium cache `/root/.cache/ms-playwright/chromium_headless_shell-1234`) → `/root/dv-qa/shots/*.png`; `/root/dv-qa/yt.mjs` untuk pembanding youtube.com. Di luar folder proyek |
+| Sinkronisasi | `modules/sync/service.ts`: full sync BFS (kategori = subfolder, slug unik, subtitle cocok nama), incremental via Changes API, kunci `GET_LOCK('dv_sync')`, error API → batal tanpa menandai missing; penjadwal tiap 10 dtk cek jatuh tempo (incremental `drive.sync_interval_sec`, full `drive.full_sync_interval_min`), perubahan folder → full sync terjadwal 30 dtk. Endpoint `GET /api/admin/sync/status`, `POST /api/admin/sync/run {mode}`; simpan folder memicu full sync. Pemeliharaan per jam: hapus sesi/oauth state kedaluwarsa, upload expired, job selesai > 14 hari; tmp > 24 jam |
 | Static web | `web/dist` — `/assets/*` disajikan nginx (immutable 1 th); `index.html` & SPA fallback oleh Fastify (`no-cache`) |
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
@@ -83,6 +84,12 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - Admin aplikasi (awal): **admin / <lihat ADMIN_INITIAL_PASSWORD di .env server>** (seeder; jika diganti, catat bahwa sudah diganti — jangan tulis password baru).
 - Database: host `localhost`, user `dummy`, password `dummy`, database `dummy` (disarankan diganti setelah stabil → ubah `.env`).
 - `.env` (mode 600, milik www) berisi `APP_KEY` — **jangan diubah setelah ada data** (dipakai enkripsi secret). Backup: `/root/backup/video_dymas.env` (Step 16).
+
+## Lingkungan uji (tanpa menyentuh produksi)
+- Fake Google Drive: `scripts/dev/fake-drive.mjs` (port 3298, data `/root/dv-qa/fakedrive`), media sintetis `scripts/dev/make-test-media.sh` → `/root/dv-qa/media-src`.
+- Instance uji: `bash scripts/dev/test-instance.sh start [--reseed] | stop | reset-db` → app port **3299**, DB **`dummy_test`** (user `dummy_test`, password di `/root/dv-qa/.dbpass`, dibuat via aaPanel id 5), env `/root/dv-qa/env.test` (DRIVE_API_BASE/DRIVE_UPLOAD_BASE → fake, `DRIVE_FAKE_TOKEN`, `SERVE_STATIC=1`, admin `admin/admin12345`), storage `/root/dv-qa/storage-test`, log `/root/dv-qa/app.log`.
+- Helper curl: `source /root/dv-qa/api.sh; login; get /api/...; post /api/... '{json}'`.
+- Variabel env khusus uji (JANGAN di `.env` produksi): `DRIVE_API_BASE`, `DRIVE_UPLOAD_BASE`, `DRIVE_FAKE_TOKEN`, `SERVE_STATIC`, `DISABLE_SCHEDULER`, `DISABLE_WORKER`.
 
 ## Helper aaPanel API
 ```bash
@@ -127,3 +134,5 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 3: plugin auth (sesi/CSRF/tamu), login/logout/me/password/PATCH me, API admin users (CRUD, reset password, proteksi admin terakhir & diri sendiri), audit log + `GET /api/admin/audit`, aturan akses `plugins/access.ts`, helmet+CSP+HSTS, rate-limit; 37 unit test lulus; diuji end-to-end via curl.
 - 2026-10-02 — Step 4: fondasi frontend — token tema YouTube, masthead + kotak Telusuri, guide/mini-guide/drawer/nav bawah mobile (breakpoint 1313/792/656), menu akun + submenu Tampilan, Login, Akun, 404, kerangka Studio admin (lazy), komponen UI (tombol, tooltip, popup, dialog, field, snackbar, skeleton, switch), `GET /api/site`; 30 unit test web; diverifikasi via screenshot vs youtube.com.
 - 2026-10-02 — Step 5 (kode): klien Drive REST (undici keep-alive, retry/backoff, refresh token, OAuth & Service Account), klasifikasi file + parser URL folder (32 test), alur OAuth (state di `oauth_states`), service account, validasi folder + folder sistem + start page token, statistik folder, endpoint settings generik; halaman Studio Pengaturan → Google Drive dengan panduan. Menunggu kredensial user.
+- 2026-10-02 — Infra uji: fake Drive + DB `dummy_test` (aaPanel) + instance uji port 3299.
+- 2026-10-02 — Step 6: sinkronisasi full/incremental, kategori, subtitle, missing/restore, penjadwal & pemeliharaan, kartu Sinkronisasi di admin; diuji: tambah/rename/pindah/trash/restore/subtitle/folder baru/Drive mati.
