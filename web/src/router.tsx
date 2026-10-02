@@ -46,7 +46,20 @@ export const router = createBrowserRouter([
       },
       {
         element: <WatchLayout />,
-        children: [{ path: 'watch', element: <PlaceholderPage title="Tonton" icon="play-arrow" /> }],
+        children: [
+          { path: 'watch', lazy: () => import('./pages/Watch').then((m) => ({ Component: m.WatchPage })) },
+          {
+            path: 'dev/player',
+            lazy: () =>
+              import('./pages/DevPlayer').then((m) => ({
+                Component: () => (
+                  <RequireAuth admin>
+                    <m.DevPlayerPage />
+                  </RequireAuth>
+                ),
+              })),
+          },
+        ],
       },
       {
         element: <BareLayout />,

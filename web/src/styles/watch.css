@@ -1,0 +1,201 @@
+/* ===== Halaman tonton (SPEC §15.5) ===== */
+.dv-watch {
+  --sec-w: 402px;
+  --pri-w: max(640px, min(1280px, calc((100vh - 169px) * 16 / 9), calc(100vw - var(--sec-w) - 24px - 48px)));
+  display: grid;
+  grid-template-columns: [full-start] minmax(24px, 1fr) [pri-start] minmax(0, var(--pri-w)) [pri-end] 24px [sec-start] var(--sec-w) [sec-end] minmax(24px, 1fr) [full-end];
+  grid-template-rows: auto 1fr;
+  padding-top: 24px;
+}
+.dv-watch__player-wrap {
+  grid-column: pri;
+  grid-row: 1;
+}
+.dv-watch__player {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+.dv-player-host {
+  position: absolute;
+  inset: 0;
+}
+.dv-watch__primary {
+  grid-column: pri;
+  grid-row: 2;
+  min-width: 0;
+  padding-bottom: 24px;
+}
+.dv-watch__secondary {
+  grid-column: sec;
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+
+/* Mode bioskop: pemutar selebar layar, kolom kanan turun sejajar judul */
+.dv-watch.is-theater {
+  padding-top: 0;
+}
+.dv-watch.is-theater .dv-watch__player-wrap {
+  grid-column: full;
+  background: #000;
+}
+.dv-watch.is-theater .dv-watch__player {
+  aspect-ratio: auto;
+  height: min(56.25vw, calc(100vh - 169px));
+  min-height: 480px;
+  border-radius: 0;
+}
+.dv-watch.is-theater .dv-watch__secondary {
+  grid-row: 2;
+  padding-top: 24px;
+}
+.dv-watch.is-theater .dv-watch__primary {
+  padding-top: 0;
+}
+
+.dv-watch__title {
+  margin-top: 12px;
+  font-size: 2rem;
+  line-height: 2.8rem;
+  font-weight: 700;
+  max-height: 5.6rem;
+}
+.dv-watch__owner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.dv-watch__owner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.dv-watch__avatar {
+  flex: none;
+  height: 40px;
+}
+.dv-watch__owner-text {
+  min-width: 0;
+}
+.dv-watch__channel {
+  display: block;
+  font-size: 1.6rem;
+  line-height: 2.2rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-watch__stats {
+  font-size: 1.2rem;
+  line-height: 1.8rem;
+  color: var(--text-secondary);
+}
+.dv-watch__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dv-watch__unavailable {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #fff;
+  text-align: center;
+}
+.dv-watch__unavailable h2 {
+  font-size: 2rem;
+  line-height: 2.8rem;
+}
+.dv-watch__unavailable p {
+  color: #aaa;
+}
+
+@media (max-width: 1016px) {
+  .dv-watch {
+    grid-template-columns: [full-start] 24px [pri-start sec-start] minmax(0, 1fr) [pri-end sec-end] 24px [full-end];
+  }
+  .dv-watch__secondary,
+  .dv-watch.is-theater .dv-watch__secondary {
+    grid-column: sec;
+    grid-row: 3;
+    padding-top: 0;
+  }
+  .dv-watch__player {
+    max-height: calc(100vh - 169px);
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 656px) {
+  .dv-watch,
+  .dv-watch.is-theater {
+    grid-template-columns: [full-start pri-start sec-start] minmax(0, 1fr) [full-end pri-end sec-end];
+    padding-top: 0;
+  }
+  .dv-watch__player-wrap,
+  .dv-watch.is-theater .dv-watch__player-wrap {
+    grid-column: full;
+    position: sticky;
+    top: 48px;
+    z-index: 50;
+    background: #000;
+  }
+  .dv-watch__player,
+  .dv-watch.is-theater .dv-watch__player {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 0;
+    border-radius: 0;
+  }
+  .dv-watch__primary {
+    padding: 0 12px 12px;
+  }
+  .dv-watch__title {
+    font-size: 1.8rem;
+    line-height: 2.6rem;
+  }
+  .dv-watch__secondary {
+    padding: 0 12px;
+  }
+  .dv-watch__secondary .dv-compact__thumb {
+    width: 160px;
+    height: 90px;
+  }
+}
+
+/* Halaman uji pemutar */
+.dv-devplayer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.dv-devplayer__box {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.dv-devplayer__log {
+  margin-top: 12px;
+  padding: 12px;
+  height: 200px;
+  overflow: auto;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  font-size: 1.2rem;
+}

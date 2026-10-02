@@ -14,6 +14,7 @@ export function prefetchVideo(qc: QueryClient, id: string): void {
     id,
     setTimeout(() => {
       timers.delete(id);
+      void import('../pages/Watch');
       void qc.prefetchQuery({ queryKey: videoKey(id), queryFn: ({ signal }) => fetchVideo(id, signal), staleTime: 30_000 });
     }, 150),
   );
