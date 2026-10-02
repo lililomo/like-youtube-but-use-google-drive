@@ -252,15 +252,6 @@
   color: var(--text-secondary);
   font-size: 1.3rem;
 }
-.dv-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-.dv-row--between {
-  justify-content: space-between;
-}
 .dv-details summary {
   cursor: pointer;
   font-weight: 500;
@@ -387,4 +378,68 @@
 }
 .dv-stat__label {
   color: var(--text-secondary);
+}
+
+/* ===== Pengaturan Situs: branding ===== */
+.dv-brand-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.dv-brand-preview__item {
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.dv-brand-preview__item .dv-logo {
+  color: #0f0f0f;
+  height: 56px;
+}
+.dv-brand-preview__item.is-dark {
+  background: #0f0f0f;
+}
+.dv-brand-preview__item.is-dark .dv-logo {
+  color: #f1f1f1;
+}
+.dv-brand-slot {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.dv-brand-slot__preview {
+  width: 160px;
+  height: 64px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: repeating-conic-gradient(var(--bg-secondary) 0% 25%, var(--bg) 0% 50%) 50% / 16px 16px;
+  border: 1px solid var(--divider);
+  font-size: 1.2rem;
+}
+.dv-brand-slot__preview.is-square {
+  width: 64px;
+}
+.dv-brand-slot__preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.dv-brand-slot__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 1.3rem;
+  min-width: 0;
+}
+.dv-brand-slot__title {
+  font-size: 1.4rem;
+  font-weight: 500;
 }

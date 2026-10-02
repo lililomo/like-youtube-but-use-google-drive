@@ -51,7 +51,27 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 
 ## Terbuka
 
-_(belum ada)_
+### [ ] ST-001 — Nama aplikasi "GDrive Tube", logo & foto profil: cek setting lama + uji di produksi
+- **Asal:** perubahan fitur 2026-10-02 (nama aplikasi bisa diatur, logo/favicon, foto profil) — commit di branch `claude/cloud-pricing-token-63p7bp`
+- **Kapan:** sesudah deploy (migrasi `002_avatar.sql` dan folder `storage/public/avatars` dibuat otomatis oleh `deploy.sh`)
+- **Butuh user:** 🧑 ya — hanya bila langkah 1 menemukan nama lama tersimpan: tanya user apakah diganti ke "GDrive Tube"
+- **Kenapa:** default baru hanya berlaku bila kunci belum pernah disimpan. Bila `site.name`/`site.channel_name`/`site.channel_handle` sudah ada di tabel `settings`, situs tetap bernama lama.
+- **Langkah:**
+  ```bash
+  # 1. Nilai site.* yang tersimpan (kosong = memakai default baru)
+  P=$(grep '^DB_PASSWORD=' /www/wwwroot/video.dymas.cloud/.env | cut -d= -f2-)
+  /www/server/mysql/bin/mysql -udummy -p"$P" dummy -e "SELECT \`key\`, value FROM settings WHERE \`key\` LIKE 'site.%'"
+  # 2. Migrasi & folder
+  /www/server/mysql/bin/mysql -udummy -p"$P" dummy -e "SELECT id FROM schema_migrations; SHOW COLUMNS FROM users LIKE 'avatar_key'"
+  ls -ld /www/wwwroot/video.dymas.cloud/storage/public/avatars
+  # 3. Nama di HTML & API
+  curl -fsS https://video.dymas.cloud/ | grep -o '<title>[^<]*</title>'
+  curl -fsS https://video.dymas.cloud/api/site
+  ```
+  Bila langkah 1 menampilkan nama lama dan user setuju diganti: ubah lewat Studio → Pengaturan → Situs (bukan SQL langsung, agar tercatat di audit log).
+- **Verifikasi:** `<title>GDrive Tube</title>` (atau nama pilihan user); `avatar_key` ada; folder `avatars` milik `www`. Uji manual di browser: upload foto profil di `/account`, upload logo + favicon di `/admin/settings/site`, tab browser menampilkan favicon baru, lalu hapus lagi bila hanya uji. File baru muncul di `storage/public/{avatars,branding}` dan bisa dibuka lewat `https://video.dymas.cloud/media/...` (alias nginx `/media/` sudah mencakup subfolder baru — tidak perlu ubah nginx).
+- **Rollback:** fitur tidak mengubah konfigurasi server; kolom `avatar_key` boleh dibiarkan.
+- **Hasil:** _(diisi Claude di server)_
 
 ---
 

@@ -310,6 +310,10 @@
   overflow: hidden;
   object-fit: cover;
 }
+.dv-avatar--img {
+  object-fit: cover;
+  background: var(--chip-bg);
+}
 .dv-skeleton {
   background: var(--skeleton) linear-gradient(90deg, transparent 0, var(--skeleton-shine) 50%, transparent 100%) no-repeat;
   background-size: 400px 100%;
@@ -712,4 +716,15 @@
 .dv-banner--info {
   background: var(--bg-secondary);
   color: var(--text);
+}
+
+/* Baris fleksibel (dipakai halaman publik & Studio). */
+.dv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.dv-row--between {
+  justify-content: space-between;
 }

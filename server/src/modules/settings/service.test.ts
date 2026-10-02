@@ -18,7 +18,7 @@ describe('SettingsService', () => {
   it('mengembalikan default bila belum diset', async () => {
     const s = new SettingsService(memoryStore());
     await s.load();
-    expect(s.get('site.name')).toBe('Dymas Video');
+    expect(s.get('site.name')).toBe('GDrive Tube');
     expect(s.get('processing.renditions')).toEqual([720, 360]);
     expect(s.get('drive.root_folder_id')).toBeNull();
     expect(s.getSecret('drive.oauth_client_secret')).toBe('');
@@ -61,7 +61,7 @@ describe('SettingsService', () => {
       memoryStore([{ key: 'unknown.key', value: '1', is_secret: 0 }, { key: 'site.name', value: '{rusak', is_secret: 0 }]),
     );
     await s.load();
-    expect(s.get('site.name')).toBe('Dymas Video');
+    expect(s.get('site.name')).toBe('GDrive Tube');
     // @ts-expect-error kunci tidak dikenal
     await expect(s.set({ 'foo.bar': 1 })).rejects.toThrow();
   });

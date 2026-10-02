@@ -100,6 +100,20 @@
   align-items: center;
   gap: 16px;
 }
+.dv-account-page__photo {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.dv-account-page__photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-width: 220px;
+  font-size: 1.4rem;
+}
 .dv-account-page__name {
   font-size: 1.8rem;
   line-height: 2.6rem;

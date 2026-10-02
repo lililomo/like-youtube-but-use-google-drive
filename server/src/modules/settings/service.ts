@@ -3,11 +3,14 @@ import { exec, query } from '../../db.js';
 
 /** Nilai default semua pengaturan (SPEC §5.2). Kunci di SECRET_KEYS disimpan terenkripsi. */
 export const SETTING_DEFAULTS = {
-  'site.name': 'Dymas Video',
+  'site.name': 'GDrive Tube',
   'site.logo_url': null as string | null,
+  'site.logo_dark_url': null as string | null,
+  'site.logo_mode': 'icon' as 'icon' | 'full',
   'site.favicon_url': null as string | null,
-  'site.channel_name': 'Dymas Video',
-  'site.channel_handle': 'dymasvideo',
+  'site.touch_icon_url': null as string | null,
+  'site.channel_name': 'GDrive Tube',
+  'site.channel_handle': 'gdrivetube',
   'site.default_theme': 'system' as 'system' | 'dark' | 'light',
   'site.guest_playlists': true,
 

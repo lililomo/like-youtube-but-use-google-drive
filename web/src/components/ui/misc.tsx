@@ -5,7 +5,21 @@ import { Icon } from '../icons/Icon';
 /** Avatar bulat dengan inisial (seperti avatar default YouTube). */
 export function Avatar({ name, color, size = 32, src }: { name: string; color: string; size?: number; src?: string | null }) {
   const initial = (name.trim()[0] ?? '?').toUpperCase();
-  if (src) return <img className="dv-avatar" src={src} alt="" width={size} height={size} style={{ width: size, height: size }} />;
+  // Foto gagal dimuat (mis. baru dihapus) → kembali ke avatar huruf.
+  const [failed, setFailed] = useState<string | null>(null);
+  if (src && failed !== src) {
+    return (
+      <img
+        className="dv-avatar dv-avatar--img"
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        style={{ width: size, height: size }}
+        onError={() => setFailed(src)}
+      />
+    );
+  }
   return (
     <span
       className="dv-avatar"

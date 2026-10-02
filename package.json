@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Dymas Video — platform video bergaya YouTube dengan sumber Google Drive",
+  "description": "GDrive Tube (kode: Dymas Video) — platform video bergaya YouTube dengan sumber Google Drive",
   "workspaces": [
     "server",
     "web"

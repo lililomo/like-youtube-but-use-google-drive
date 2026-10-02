@@ -8,7 +8,7 @@ import { AppError, errorBody } from './lib/errors.js';
 import { auditRoutes } from './modules/audit/service.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { settings } from './modules/settings/service.js';
-import { siteRoutes } from './modules/site/routes.js';
+import { siteInfo, siteRoutes } from './modules/site/routes.js';
 import { settingsRoutes } from './modules/settings/routes.js';
 import { driveRoutes } from './modules/drive/routes.js';
 import { syncRoutes } from './modules/sync/routes.js';
@@ -21,6 +21,8 @@ import { ogMeta } from './modules/videos/og.js';
 import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
 import { userRoutes } from './modules/users/routes.js';
+import { avatarRoutes } from './modules/users/avatar.js';
+import { brandingRoutes } from './modules/branding/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerSpa } from './plugins/spa.js';
 
@@ -125,6 +127,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(siteRoutes);
   await app.register(authRoutes);
   await app.register(userRoutes);
+  await app.register(avatarRoutes);
+  await app.register(brandingRoutes);
   await app.register(auditRoutes);
   await app.register(settingsRoutes);
   await app.register(driveRoutes);
@@ -146,7 +150,14 @@ export async function buildApp(): Promise<FastifyInstance> {
     });
   }
 
-  await registerSpa(app, { distDir: config.WEB_DIST_DIR, metaResolver: ogMeta });
+  await registerSpa(app, {
+    distDir: config.WEB_DIST_DIR,
+    metaResolver: ogMeta,
+    siteHead: () => {
+      const site = siteInfo();
+      return { title: site.name, faviconUrl: site.faviconUrl, touchIconUrl: site.touchIconUrl, boot: site };
+    },
+  });
 
   return app;
 }

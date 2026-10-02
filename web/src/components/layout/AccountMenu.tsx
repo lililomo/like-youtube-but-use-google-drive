@@ -64,7 +64,7 @@ export function AccountMenu() {
           aria-expanded={open}
           onClick={() => (open ? close() : setOpen(true))}
         >
-          <Avatar name={user.displayName} color={user.avatarColor} size={32} />
+          <Avatar name={user.displayName} color={user.avatarColor} src={user.avatarUrl} size={32} />
         </button>
       ) : (
         <IconButton ref={anchor} icon="more-vert" label={t.account.settingsMenu} aria-haspopup="menu" onClick={() => (open ? close() : setOpen(true))} />
@@ -77,7 +77,7 @@ export function AccountMenu() {
             {user && (
               <>
                 <div className="dv-account-header">
-                  <Avatar name={user.displayName} color={user.avatarColor} size={40} />
+                  <Avatar name={user.displayName} color={user.avatarColor} src={user.avatarUrl} size={40} />
                   <div className="dv-account-header__text">
                     <div className="dv-account-header__name">{user.displayName}</div>
                     <div className="dv-account-header__handle">@{user.username}</div>

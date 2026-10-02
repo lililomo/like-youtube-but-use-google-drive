@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { exec, query, queryOne, tx } from '../../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
+import { avatarUrl, removePublic } from '../../lib/images.js';
 import { MIN_PASSWORD_LENGTH, hashPassword } from '../../lib/password.js';
 import { parse } from '../../lib/validate.js';
 import { requireAdmin } from '../../plugins/auth.js';
@@ -51,6 +52,7 @@ interface AdminUserRow {
   role: 'admin' | 'user';
   status: 'active' | 'disabled';
   avatar_color: string;
+  avatar_key: string | null;
   storage_quota_bytes: number | null;
   storage_used_bytes: number;
   last_login_at: Date | null;
@@ -59,7 +61,7 @@ interface AdminUserRow {
 }
 
 const USER_SELECT = `
-  SELECT u.id, u.username, u.display_name, u.role, u.status, u.avatar_color, u.storage_quota_bytes,
+  SELECT u.id, u.username, u.display_name, u.role, u.status, u.avatar_color, u.avatar_key, u.storage_quota_bytes,
          u.storage_used_bytes, u.last_login_at, u.created_at,
          (SELECT COUNT(*) FROM videos v WHERE v.owner_user_id = u.id AND v.deleted_at IS NULL) AS video_count
     FROM users u`;
@@ -72,6 +74,7 @@ function toAdminUser(r: AdminUserRow) {
     role: r.role,
     status: r.status,
     avatarColor: r.avatar_color,
+    avatarUrl: avatarUrl(r.id, r.avatar_key),
     storageQuotaBytes: r.storage_quota_bytes == null ? null : Number(r.storage_quota_bytes),
     storageUsedBytes: Number(r.storage_used_bytes),
     videoCount: Number(r.video_count),
@@ -209,6 +212,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       await exec('DELETE FROM users WHERE id = ?', [id], conn);
       return n;
     });
+    await removePublic('avatars', `${id}-`);
     await audit(req, 'user.delete', { type: 'user', id }, { username: target.username, videos: body.videos, affected });
     return { ok: true, videosAffected: affected };
   });

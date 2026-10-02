@@ -1,26 +1,59 @@
 import { Link } from 'react-router';
-import { useSite } from '../../hooks/useSite';
+import { useSite, type SiteInfo } from '../../hooks/useSite';
 
-/** Logo situs: gambar dari admin bila ada, kalau tidak logo bawaan (lingkaran merah + wordmark). */
+function Wordmark({ name }: { name: string }) {
+  const [first, ...rest] = name.split(' ');
+  return (
+    <span className="dv-logo__word">
+      <b>{first}</b>
+      {rest.length > 0 && <span>{rest.join(' ')}</span>}
+    </span>
+  );
+}
+
+/** Gambar logo + varian tema gelap (ditukar lewat CSS html[data-theme="dark"]). */
+function LogoImages({ site, className }: { site: SiteInfo; className: string }) {
+  if (!site.logoUrl) return null;
+  const dark = site.logoDarkUrl;
+  return (
+    <>
+      <img className={`${className} dv-logo__img--light${dark ? ' has-dark' : ''}`} src={site.logoUrl} alt="" />
+      {dark && <img className={`${className} dv-logo__img--dark`} src={dark} alt="" />}
+    </>
+  );
+}
+
+/** Isi logo (tanpa tautan) — dipakai juga untuk pratinjau di Studio. */
+export function LogoContent({ site }: { site: SiteInfo }) {
+  if (site.logoUrl && site.logoMode === 'full') {
+    return (
+      <>
+        <LogoImages site={site} className="dv-logo__img" />
+        <span className="dv-visually-hidden">{site.name}</span>
+      </>
+    );
+  }
+  return (
+    <>
+      {site.logoUrl ? (
+        <LogoImages site={site} className="dv-logo__icon" />
+      ) : (
+        <svg className="dv-logo__mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#FF0000" />
+          <path d="M9.5 7.2v9.6l7.6-4.8z" fill="#FFFFFF" />
+        </svg>
+      )}
+      <Wordmark name={site.name} />
+    </>
+  );
+}
+
+/** Logo situs: nama & gambar diatur admin (Studio → Pengaturan → Situs); bawaan: ikon merah + nama. */
 export function Logo({ onClick }: { onClick?: () => void }) {
   const site = useSite();
-  const [first, ...rest] = site.name.split(' ');
   return (
     <Link to="/" className="dv-logo" aria-label={`Beranda ${site.name}`} title={`Beranda ${site.name}`} onClick={onClick}>
-      {site.logoUrl ? (
-        <img className="dv-logo__img" src={site.logoUrl} alt={site.name} />
-      ) : (
-        <>
-          <svg className="dv-logo__mark" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="12" fill="#FF0000" />
-            <path d="M9.5 7.2v9.6l7.6-4.8z" fill="#FFFFFF" />
-          </svg>
-          <span className="dv-logo__word">
-            <b>{first}</b>
-            {rest.length > 0 && <span>{rest.join(' ')}</span>}
-          </span>
-        </>
-      )}
+      <LogoContent site={site} />
     </Link>
   );
 }

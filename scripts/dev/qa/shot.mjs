@@ -1,4 +1,4 @@
-// Screenshot QA Dymas Video. Pemakaian: node shot.mjs <nama> <path> <lebar> <tinggi> <dark|light> [login] [aksi]
+// Screenshot QA (GDrive Tube). Pemakaian: node shot.mjs <nama> <path> <lebar> <tinggi> <dark|light> [login] [aksi]
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 

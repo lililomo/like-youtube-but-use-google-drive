@@ -1,4 +1,5 @@
 import { query, queryOne } from '../../db.js';
+import { avatarUrl } from '../../lib/images.js';
 import { signedStreamUrl, viewerKey } from '../../lib/sign.js';
 import { canEditVideo, type Viewer } from '../../plugins/access.js';
 import { settings } from '../settings/service.js';
@@ -8,7 +9,7 @@ export const VIDEO_SELECT = `
   SELECT v.id, v.public_id, v.title, v.duration_ms, v.thumb_key, v.view_count, v.published_at, v.visibility, v.status,
          v.owner_user_id, v.category_id, v.deleted_at, v.width, v.height, v.mime_type, v.container, v.video_codec,
          v.original_playable, v.storyboard, v.drive_file_id, v.size_bytes, v.bitrate_kbps, v.processing_error, v.source,
-         u.username AS owner_username, u.display_name AS owner_name, u.avatar_color AS owner_color,
+         u.username AS owner_username, u.display_name AS owner_name, u.avatar_color AS owner_color, u.avatar_key AS owner_avatar_key,
          c.slug AS category_slug, c.name AS category_name
     FROM videos v
     LEFT JOIN users u ON u.id = v.owner_user_id
@@ -42,6 +43,7 @@ export interface VideoRecord {
   owner_username: string | null;
   owner_name: string | null;
   owner_color: string | null;
+  owner_avatar_key?: string | null;
   category_slug: string | null;
   category_name: string | null;
 }
@@ -64,15 +66,29 @@ export interface Channel {
   avatarUrl: string | null;
 }
 
-export function channelOf(v: Pick<VideoRecord, 'owner_user_id' | 'owner_username' | 'owner_name' | 'owner_color'>): Channel {
+/** Avatar channel utama: favicon (persegi) → logo mode ikon → null (avatar huruf). */
+export function mainChannelAvatar(): string | null {
+  const touch = settings.get('site.touch_icon_url');
+  if (touch) return touch;
+  return settings.get('site.logo_mode') === 'icon' ? settings.get('site.logo_url') : null;
+}
+
+export function channelOf(
+  v: Pick<VideoRecord, 'owner_user_id' | 'owner_username' | 'owner_name' | 'owner_color' | 'owner_avatar_key'>,
+): Channel {
   if (v.owner_user_id && v.owner_username) {
-    return { name: v.owner_name ?? v.owner_username, handle: v.owner_username, avatarColor: v.owner_color ?? '#5c6bc0', avatarUrl: null };
+    return {
+      name: v.owner_name ?? v.owner_username,
+      handle: v.owner_username,
+      avatarColor: v.owner_color ?? '#5c6bc0',
+      avatarUrl: avatarUrl(v.owner_user_id, v.owner_avatar_key),
+    };
   }
   return {
     name: settings.get('site.channel_name'),
     handle: settings.get('site.channel_handle'),
     avatarColor: '#cc0000',
-    avatarUrl: settings.get('site.logo_url'),
+    avatarUrl: mainChannelAvatar(),
   };
 }
 

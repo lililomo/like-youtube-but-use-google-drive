@@ -6,6 +6,7 @@ import { AdminPlaceholder } from './AdminPlaceholder';
 import { DriveSettingsPage } from './DriveSettings';
 import { JobsPage } from './Jobs';
 import { ProcessingSettingsPage } from './ProcessingSettings';
+import { SiteSettingsPage } from './SiteSettings';
 
 /** Rute panel admin (di-lazy-load sebagai satu chunk). */
 export const adminRoutes: RouteObject[] = [
@@ -23,6 +24,7 @@ export const adminRoutes: RouteObject[] = [
       { path: 'jobs', element: <JobsPage /> },
       { path: 'settings/drive', element: <DriveSettingsPage /> },
       { path: 'settings/processing', element: <ProcessingSettingsPage /> },
+      { path: 'settings/site', element: <SiteSettingsPage /> },
       { path: 'settings/:group', element: <AdminPlaceholder title={t.admin.settings} icon="settings" /> },
       { path: 'audit', element: <AdminPlaceholder title={t.admin.audit} icon="description" /> },
       { path: '*', element: <AdminPlaceholder title="404" icon="error" /> },

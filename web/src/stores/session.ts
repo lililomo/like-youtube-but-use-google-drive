@@ -7,6 +7,7 @@ export interface User {
   displayName: string;
   role: 'admin' | 'user';
   avatarColor: string;
+  avatarUrl: string | null;
   storageUsedBytes: number;
   storageQuotaBytes: number | null;
 }

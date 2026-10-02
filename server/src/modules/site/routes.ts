@@ -6,7 +6,10 @@ export function siteInfo() {
   return {
     name: settings.get('site.name'),
     logoUrl: settings.get('site.logo_url'),
+    logoDarkUrl: settings.get('site.logo_dark_url'),
+    logoMode: settings.get('site.logo_mode'),
     faviconUrl: settings.get('site.favicon_url'),
+    touchIconUrl: settings.get('site.touch_icon_url'),
     channelName: settings.get('site.channel_name'),
     channelHandle: settings.get('site.channel_handle'),
     defaultTheme: settings.get('site.default_theme'),

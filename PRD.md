@@ -1,4 +1,6 @@
-# PRD — Dymas Video (YouTube-like Video Platform berbasis Google Drive)
+# PRD — GDrive Tube (YouTube-like Video Platform berbasis Google Drive)
+
+> Nama aplikasi bawaan **GDrive Tube** — dapat diganti admin (Studio → Pengaturan → Situs). "Dymas Video" tetap dipakai sebagai nama kode proyek/infrastruktur (domain, project aaPanel `video_dymas`, folder Drive `_dymasvideo_system`).
 
 > Versi dokumen: 1.0 · Tanggal: 2026-10-02 · Domain: `https://video.dymas.cloud`
 > Dokumen terkait: [SPEC.md](SPEC.md) (spesifikasi teknis) · [PROMPT.md](PROMPT.md) (langkah eksekusi) · [CLAUDE.md](CLAUDE.md) (catatan konfigurasi & progres)
@@ -61,7 +63,7 @@ Tabel ini menjelaskan bagaimana permintaan awal diterjemahkan menjadi keputusan 
 
 | # | Permintaan awal | Keputusan / penyempurnaan |
 |---|---|---|
-| 1 | "Persis banget dengan YouTube, ambil langsung temanya" | Tata letak, warna, ukuran, font (Roboto), ikon gaya Material, animasi, teks Bahasa Indonesia ala YouTube, tema gelap/terang direplikasi secara presisi (design token di SPEC §15). **Yang tidak disalin:** logo, nama "YouTube", dan file kode/CSS milik YouTube (merek dagang & hak cipta; CSS YouTube juga terikat framework internal mereka). Nama & logo situs default **"Dymas Video"**, bisa diganti di pengaturan admin. Hasil visual tetap hampir identik. |
+| 1 | "Persis banget dengan YouTube, ambil langsung temanya" | Tata letak, warna, ukuran, font (Roboto), ikon gaya Material, animasi, teks Bahasa Indonesia ala YouTube, tema gelap/terang direplikasi secara presisi (design token di SPEC §15). **Yang tidak disalin:** logo, nama "YouTube", dan file kode/CSS milik YouTube (merek dagang & hak cipta; CSS YouTube juga terikat framework internal mereka). Nama aplikasi default **"GDrive Tube"**; nama, logo (termasuk varian tema gelap) & favicon bisa diganti admin kapan saja tanpa deploy ulang. Hasil visual tetap hampir identik. |
 | 2 | Video dari satu folder Google Drive, judul = nama file | Sinkronisasi otomatis (incremental tiap 60 detik + rekonsiliasi penuh tiap 6 jam + tombol "Sinkronkan sekarang"). Judul = nama file tanpa ekstensi terakhir. **Subfolder menjadi kategori** (muncul sebagai chip di atas beranda, seperti chip YouTube). Rename file di Drive → judul ikut berubah. File dihapus/dipindah keluar dari folder → video hilang dari aplikasi. |
 | 3 | "Binding API key Google Drive di setting admin" | **API key biasa tidak cukup**: API key hanya bisa membaca file yang dibagikan publik dan **tidak bisa upload**. Maka pengaturan admin memakai **OAuth Client ID + Client Secret** lalu tombol **"Hubungkan Google Drive"** (sekali klik, token disimpan terenkripsi). Alternatif: **Service Account JSON** (hanya untuk Shared Drive Google Workspace). Panduan pembuatan kredensial ditampilkan langsung di halaman pengaturan. |
 | 4 | Video tidak boleh bocor | File Drive **tidak perlu dibagikan publik**. Semua streaming lewat server (proxy dengan dukungan Range/seek) memakai URL bertanda tangan (signed URL, kedaluwarsa). Video privat dicek kepemilikannya di setiap request. |
@@ -121,7 +123,7 @@ Prioritas: **P0** = wajib untuk rilis, **P1** = sangat diharapkan (masuk rilis),
 | Channel | `/@username` | Header channel sederhana + tab Video & Playlist publik | P1 |
 | Video Anda | `/my/videos` | Tabel ala YouTube Studio: thumbnail, judul, visibilitas (dropdown), tanggal, ditonton, status proses, aksi ubah judul/hapus/subtitle | P0 |
 | Login | `/login` | Kartu login (username, password, "Ingat saya"); tanpa link daftar | P0 |
-| Akun | `/account` | Ubah nama tampilan, warna avatar, password | P1 |
+| Akun | `/account` | Ubah **foto profil** (upload/ganti/hapus), nama tampilan, warna avatar (bila tanpa foto), password | P0 (foto profil) / P1 |
 | Panel Admin | `/admin/*` | Lihat §5.7 | P0 |
 | 404 | `*` | Halaman "Halaman ini tidak tersedia" gaya YouTube | P0 |
 
@@ -168,7 +170,7 @@ Semua **P0** kecuali disebut lain.
 - **P0 Video**: semua video (filter status/visibilitas/pemilik/kategori, cari), ubah visibilitas/judul/kategori, proses ulang, hapus; aksi massal.
 - **P0 Playlist**: daftar semua playlist, ubah visibilitas, hapus.
 - **P0 Pengaturan → Google Drive**: mode autentikasi (OAuth / Service Account), Client ID, Client Secret, Redirect URI (ditampilkan untuk disalin), tombol Hubungkan/Putuskan, akun terhubung, folder sumber (URL/ID), sertakan subfolder, interval sinkron, tombol Tes koneksi & Sinkronkan sekarang, panduan langkah demi langkah.
-- **P0 Pengaturan → Situs**: nama situs, logo & favicon, nama channel utama, tema default, izinkan playlist tamu.
+- **P0 Pengaturan → Situs**: **nama aplikasi** (default "GDrive Tube"), **logo** (mode ikon + nama atau gambar penuh, varian tema gelap opsional) & **favicon** dengan pratinjau langsung, nama & handle channel utama, tema default, izinkan playlist tamu. Perubahan langsung berlaku (masthead, `<title>`, OG meta, favicon) tanpa restart.
 - **P1 Pengaturan → Pemrosesan**: aktif/nonaktif, daftar kualitas, preset kecepatan encode, jumlah thread, minimal sisa disk.
 - **P1 Pengaturan → Upload**: aktif/nonaktif, ukuran maksimal, ekstensi yang diizinkan, visibilitas default, kuota default.
 - **P1 Antrean Pemrosesan**: daftar job (menunggu/berjalan/gagal), retry, hapus, log error.

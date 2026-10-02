@@ -1,4 +1,6 @@
-# PROMPT — Langkah Eksekusi Dymas Video
+# PROMPT — Langkah Eksekusi GDrive Tube (kode proyek: Dymas Video)
+
+> Nama aplikasi bawaan **GDrive Tube** (setting `site.name`, dapat diganti admin). Teks "Dymas Video" di prompt lama = nama kode proyek/infrastruktur; untuk teks UI selalu pakai nama dari setting.
 
 > Dokumen ini berisi prompt berurutan (Step 0 → Step 17) untuk dieksekusi dengan Claude Code di folder `/www/wwwroot/video.dymas.cloud`.
 > Acuan: [PRD.md](PRD.md) (apa & kenapa), [SPEC.md](SPEC.md) (bagaimana), [CLAUDE.md](CLAUDE.md) (konfigurasi aktual & progres).
@@ -69,7 +71,7 @@ Kerjakan STEP 1 — Kerangka proyek & jalur deploy (SPEC §2, §3.2, §3.5–3.8
    - server/ : Fastify 5 + TypeScript strict, build tsc → server/dist (ESM),
    - web/ : Vite 7 + React 19 + TypeScript.
 2. Server minimal: config.ts (process.loadEnvFile + validasi zod sesuai SPEC §5.1), logger pino (redaksi cookie/authorization), GET /api/health (ok, versi, uptime), static web/dist + SPA fallback index.html dengan placeholder <!--DV_META--> (SPEC §14.3), listen 127.0.0.1:3210, graceful shutdown SIGTERM/SIGINT.
-3. Web minimal: halaman placeholder "Dymas Video".
+3. Web minimal: halaman placeholder dengan nama aplikasi (default "GDrive Tube").
 4. Buat .env (APP_KEY 32 byte acak base64, INTERNAL_TOKEN acak), .env.example (tanpa nilai rahasia), folder storage/ (SPEC §4), scripts/deploy.sh (SPEC §3.8), scripts/nginx-custom.conf (isi SPEC §3.5).
 5. npm install & build, chown -R www:www, chmod 600 .env.
 6. Buat Node Project aaPanel lewat bt-api.py dengan parameter SPEC §3.2 (project_name video_dymas, script absolut server/dist/index.js, port 3210, run_user www, v24.18.0, domain video.dymas.cloud, auto start on boot, memory limit 2048). Jika API tidak bisa dipakai, berikan saya instruksi UI aaPanel yang persis lalu TUNGGU konfirmasi saya.
@@ -126,13 +128,13 @@ Kerjakan STEP 3 — Auth & user (SPEC §12, §13, endpoint terkait di §14.2).
 Kerjakan STEP 4 — Fondasi frontend (SPEC §15 seluruhnya; PRD §5.1).
 Referensi visual: youtube.com versi desktop & mobile terbaru. Bila bisa, pasang Playwright (devDependency + chromium) untuk mengambil screenshot YouTube dan aplikasi kita pada ukuran yang sama lalu bandingkan. Jangan menyalin logo, nama, atau file aset/CSS YouTube.
 
-1. styles/tokens.css (tema terang & gelap SPEC §15.2), base.css (html font-size 10px, Roboto self-host 400/500/700, reset, scrollbar ala YouTube), script anti-kedip tema di index.html, logo SVG "Dymas Video" (SPEC §15.1).
+1. styles/tokens.css (tema terang & gelap SPEC §15.2), base.css (html font-size 10px, Roboto self-host 400/500/700, reset, scrollbar ala YouTube), script anti-kedip tema di index.html, logo SVG bawaan + wordmark dari `site.name` (SPEC §15.1).
 2. Ikon Material Symbols sebagai SVG inline (outlined + filled untuk item aktif).
 3. Komponen ui/: Button (pill/teks/CTA), IconButton + Tooltip, Menu (popup + submenu), Dialog, Snackbar, Skeleton (shimmer), Switch, Select, Avatar (inisial + warna), Spinner, Tabs, Table.
 4. Layout: Masthead (hamburger, logo, SearchBox dengan perilaku fokus/ikon/clear persis YouTube, tombol Upload untuk user, AccountMenu atau tombol "Login"), Guide 240px, MiniGuide 72px, GuideDrawer + scrim, MobileNav, TopProgress. Breakpoint & ukuran PERSIS SPEC §15.3–15.4; status guide diingat.
 5. Router react-router 7 untuk semua rute PRD §5.3 (yang belum dibuat → placeholder skeleton), layout Watch (tanpa guide permanen), layout Admin (lazy, kerangka Studio).
 6. lib/api.ts (CSRF header, error seragam), stores session/theme/ui, lib/format.ts (SPEC §15.7) + unit test, i18n/id.ts untuk semua teks.
-7. Halaman Login (kartu tengah: logo, "Login", "untuk melanjutkan ke Dymas Video", username, password + tampilkan, Ingat saya, error; tanpa link daftar), AccountMenu (tema perangkat/gelap/terang juga untuk tamu, Keluar), halaman Akun (/account: nama, warna avatar, ganti password), halaman 404 gaya YouTube.
+7. Halaman Login (kartu tengah: logo, "Login", "untuk melanjutkan ke <nama aplikasi>", username, password + tampilkan, Ingat saya, error; tanpa link daftar), AccountMenu (tema perangkat/gelap/terang juga untuk tamu, Keluar), halaman Akun (/account: foto profil upload/ganti/hapus, nama, warna avatar, ganti password), halaman 404 gaya YouTube.
 8. Screenshot aplikasi pada lebar 1920, 1280, 1000, 400 px × tema gelap & terang; bandingkan dengan YouTube; perbaiki selisih jarak/ukuran/warna sampai setara.
 9. Deploy, perbarui CLAUDE.md, centang Step 4, commit.
 ```
@@ -287,7 +289,7 @@ Kerjakan STEP 12 — Halaman tonton (PRD §5.3, §5.4; SPEC §15.5, §16.9, §17
 2. Pemutar persisten: ketika v berganti (next/prev/klik rekomendasi), PlayerView TIDAK di-unmount; fullscreen tetap bertahan saat autoplay.
 3. Di bawah pemutar: judul, baris channel (avatar 40px, nama, tayangan · waktu), tombol Bagikan (ShareDialog dengan "Mulai pada mm:ss" + salin + tautan bagikan WhatsApp/Telegram/X/Facebook), Simpan (siapkan; backend di Step 13), untuk pemilik/admin: pill Publik/Privat (ubah langsung) & menu ⋯ (Ubah judul, Hapus). Tanpa deskripsi/komentar.
 4. Kolom kanan: chip filter (Semua / Dari <channel> / Terkait) + CompactVideo list dengan infinite scroll; slot PlaylistPanel bila ada list= (komponen diisi di Step 13).
-5. Next/prev, autoplay, resume (resumeSec / localStorage tamu), parameter t= (detik atau 1m30s), POST /api/progress tiap 15 dtk + jeda + pagehide (fetch keepalive), histori tamu lokal, view saat viewqualified, title dokumen "<judul> - Dymas Video".
+5. Next/prev, autoplay, resume (resumeSec / localStorage tamu), parameter t= (detik atau 1m30s), POST /api/progress tiap 15 dtk + jeda + pagehide (fetch keepalive), histori tamu lokal, view saat viewqualified, title dokumen "<judul> - <nama aplikasi>".
 6. Halaman Histori (/feed/history, dikelompokkan per hari, hapus satu/semua) & Anda (/feed/you).
 7. Video tidak tersedia → layar "Video tidak tersedia" gaya YouTube.
 8. Screenshot halaman tonton vs YouTube (1920/1280/1000/400 px, normal & bioskop, gelap & terang) → perbaiki selisih.
@@ -347,7 +349,7 @@ Perbarui CLAUDE.md, centang Step 14, commit.
 ```text
 Kerjakan STEP 15 — Panel admin (PRD §5.7; SPEC §18).
 
-Lengkapi layout Studio dan semua halaman: Dasbor (metrik, status Drive, sinkron terakhir + tombol, antrean + progres, disk, top 5 video, 5 upload terbaru), Pengguna (tabel + dialog tambah/ubah dengan generate password, kuota GB, role, status; reset password; hapus dengan pilihan video), Video (tabel Studio, filter status/visibilitas/pemilik/kategori, cari, aksi per baris & massal: visibilitas, proses ulang, hapus), Playlist (tabel, ubah visibilitas, hapus), Antrean (rapikan), Pengaturan: Situs (nama, logo & favicon upload — SVG disanitasi, channel utama & handle, tema default, izinkan playlist tamu), Upload, Pemutar, Keamanan; Log Aktivitas (filter aksi).
+Lengkapi layout Studio dan semua halaman: Dasbor (metrik, status Drive, sinkron terakhir + tombol, antrean + progres, disk, top 5 video, 5 upload terbaru), Pengguna (tabel + dialog tambah/ubah dengan generate password, kuota GB, role, status; reset password; hapus dengan pilihan video), Video (tabel Studio, filter status/visibilitas/pemilik/kategori, cari, aksi per baris & massal: visibilitas, proses ulang, hapus), Playlist (tabel, ubah visibilitas, hapus), Antrean (rapikan), Pengaturan: Situs (SUDAH ADA sejak perubahan 2026-10-02: nama aplikasi, logo/logo gelap/favicon — semua gambar termasuk SVG di-render ulang ke PNG, channel utama & handle, tema default, playlist tamu; cukup rapikan), Pengguna juga menampilkan foto profil + aksi hapus foto (moderasi), Upload, Pemutar, Keamanan; Log Aktivitas (filter aksi).
 Semua perubahan pengaturan tercatat di audit log dan langsung berlaku (invalidasi cache settings; nama/logo situs langsung berubah di masthead & <title>).
 
 Uji semua alur admin; pastikan user biasa & tamu tidak bisa membuka /admin maupun memanggil /api/admin/* (403/redirect login).

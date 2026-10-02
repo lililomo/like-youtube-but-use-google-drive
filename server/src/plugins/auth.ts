@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { config, isProd } from '../config.js';
 import { exec, queryOne } from '../db.js';
 import { randomToken, safeEqual, sha256Hex } from '../lib/crypto.js';
+import { avatarUrl } from '../lib/images.js';
 import { AppError, forbidden, unauthorized } from '../lib/errors.js';
 import { settings } from '../modules/settings/service.js';
 import type { Viewer } from './access.js';
@@ -22,8 +23,18 @@ export interface SessionUser {
   role: 'admin' | 'user';
   status: 'active' | 'disabled';
   avatar_color: string;
+  avatar_key: string | null;
   storage_quota_bytes: number | null;
   storage_used_bytes: number;
+}
+
+/** Kolom users yang dibutuhkan publicUser() (dipakai bersama oleh query lain). */
+export const SESSION_USER_COLUMNS =
+  'u.id, u.username, u.display_name, u.role, u.status, u.avatar_color, u.avatar_key, u.storage_quota_bytes, u.storage_used_bytes';
+
+/** Muat user (bentuk SessionUser) berdasarkan id. */
+export async function loadSessionUser(id: number): Promise<SessionUser | null> {
+  return queryOne<SessionUser>(`SELECT ${SESSION_USER_COLUMNS} FROM users u WHERE u.id = ?`, [id]);
 }
 
 export interface RequestViewer extends Viewer {
@@ -62,9 +73,7 @@ async function resolveViewer(req: FastifyRequest): Promise<RequestViewer> {
   if (!sid || sid.length < 32 || sid.length > 64) return { ...GUEST_VIEWER, guestHash };
 
   const row = await queryOne<SessionRow>(
-    `SELECT s.id AS session_id, s.remember, s.expires_at, s.last_seen_at,
-            u.id, u.username, u.display_name, u.role, u.status, u.avatar_color,
-            u.storage_quota_bytes, u.storage_used_bytes
+    `SELECT s.id AS session_id, s.remember, s.expires_at, s.last_seen_at, ${SESSION_USER_COLUMNS}
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP()`,
     [sha256Hex(sid)],
@@ -171,6 +180,7 @@ export function publicUser(u: SessionUser) {
     displayName: u.display_name,
     role: u.role,
     avatarColor: u.avatar_color,
+    avatarUrl: avatarUrl(u.id, u.avatar_key),
     storageUsedBytes: Number(u.storage_used_bytes),
     storageQuotaBytes: u.storage_quota_bytes == null ? null : Number(u.storage_quota_bytes),
   };

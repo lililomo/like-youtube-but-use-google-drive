@@ -81,8 +81,24 @@
 .dv-logo__img {
   height: 24px;
   width: auto;
-  max-width: 160px;
+  max-width: 180px;
   object-fit: contain;
+}
+.dv-logo__icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex: none;
+}
+/* Varian logo tema gelap (Studio → Pengaturan → Situs). */
+.dv-logo__img--dark {
+  display: none;
+}
+html[data-theme='dark'] .dv-logo__img--light.has-dark {
+  display: none;
+}
+html[data-theme='dark'] .dv-logo__img--dark {
+  display: inline-block;
 }
 
 /* Tombol Buat/Upload */
@@ -254,9 +270,13 @@
   height: 48px;
   padding: 0 8px 0 12px;
 }
-.dv-masthead--mobile .dv-logo__mark {
+.dv-masthead--mobile .dv-logo__mark,
+.dv-masthead--mobile .dv-logo__icon {
   width: 22px;
   height: 22px;
+}
+.dv-masthead--mobile .dv-logo__img {
+  max-width: 140px;
 }
 .dv-masthead--mobile .dv-logo__word {
   font-size: 1.7rem;

@@ -31,7 +31,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
 fi
 
 log "izin file"
-mkdir -p storage/public/{thumbs,sb,branding} storage/cache/subs storage/tmp
+mkdir -p storage/public/{thumbs,sb,branding,avatars} storage/cache/subs storage/tmp
 chown -R www:www "$ROOT"
 chmod 600 .env
 

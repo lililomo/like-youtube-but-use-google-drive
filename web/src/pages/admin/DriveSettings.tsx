@@ -162,7 +162,7 @@ function Guide({ redirectUri, open }: { redirectUri: string; open: boolean }) {
           <a className="dv-link" href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">
             Google Cloud Console
           </a>{' '}
-          dan buat project baru (mis. "Dymas Video"), memakai akun Google <b>pemilik folder video</b>.
+          dan buat project baru (mis. "GDrive Tube"), memakai akun Google <b>pemilik folder video</b>.
         </li>
         <li>
           Buka{' '}

@@ -1,4 +1,6 @@
-# SPEC — Dymas Video (Spesifikasi Teknis)
+# SPEC — GDrive Tube (Spesifikasi Teknis)
+
+> Nama aplikasi = setting `site.name` (default **GDrive Tube**). Nama kode/infrastruktur tetap "Dymas Video" (`video_dymas`, `_dymasvideo_system`, prefix `dv-`/`dv_`).
 
 > Versi: 1.0 · Tanggal: 2026-10-02 · Mengacu ke [PRD.md](PRD.md). Langkah eksekusi di [PROMPT.md](PROMPT.md). Konfigurasi aktual & progres dicatat di [CLAUDE.md](CLAUDE.md).
 > Bila SPEC dan PRD bertentangan, **PRD menang** untuk perilaku produk, **SPEC menang** untuk detail teknis.
@@ -258,7 +260,7 @@ Let's Encrypt via aaPanel (HTTP-01) untuk `video.dymas.cloud`, aktifkan *Force H
 │       │   └── PlayerView.tsx
 │       └── pages/          # Home, Watch, Results, Playlist, PlaylistsMine, PlaylistsPublic, You, History, Channel, MyVideos, Login, Account, NotFound, admin/*
 └── storage/                # milik www; tidak di-commit
-    ├── public/thumbs/  public/sb/  public/branding/
+    ├── public/thumbs/  public/sb/  public/branding/  public/avatars/
     ├── cache/subs/
     └── tmp/
 ```
@@ -302,10 +304,13 @@ Nilai disimpan JSON; `is_secret=1` → dienkripsi AES-256-GCM (`v1:<iv b64>:<tag
 
 | Key | Default | Keterangan |
 |---|---|---|
-| `site.name` | `"Dymas Video"` | judul situs & `<title>` |
-| `site.logo_url` / `site.favicon_url` | `null` | upload di admin → `storage/public/branding/` |
-| `site.channel_name` | `"Dymas Video"` | channel utama (video dari Drive) |
-| `site.channel_handle` | `"dymasvideo"` | `/@dymasvideo`; username user tidak boleh sama |
+| `site.name` | `"GDrive Tube"` | nama aplikasi: logo/wordmark, `<title>`, OG `site_name`, login; disisipkan server ke `index.html` |
+| `site.logo_url` | `null` | logo (PNG hasil render) di `storage/public/branding/logo-<key>.png` |
+| `site.logo_dark_url` | `null` | varian logo untuk tema gelap (`logodark-<key>.png`), opsional |
+| `site.logo_mode` | `"icon"` | `icon` = gambar menggantikan ikon bulat + nama ditulis; `full` = gambar = seluruh logo. Ditebak saat upload (lebar ≥ 1,6× tinggi → `full`) |
+| `site.favicon_url` / `site.touch_icon_url` | `null` | favicon PNG 64 px & apple-touch-icon 180 px (`favicon-<key>-{64,180}.png`); 180 px juga jadi foto channel utama |
+| `site.channel_name` | `"GDrive Tube"` | channel utama (video dari Drive) |
+| `site.channel_handle` | `"gdrivetube"` | `/@gdrivetube`; username user tidak boleh sama |
 | `site.default_theme` | `"system"` | `system` / `dark` / `light` |
 | `site.guest_playlists` | `true` | izinkan tamu membuat playlist |
 | `drive.auth_mode` | `"oauth"` | `oauth` / `service_account` |
@@ -361,6 +366,7 @@ CREATE TABLE users (
   role ENUM('admin','user') NOT NULL DEFAULT 'user',
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
   avatar_color CHAR(7) NOT NULL DEFAULT '#5c6bc0',
+  avatar_key VARCHAR(16) NULL,                     -- foto profil: storage/public/avatars/<id>-<key>.webp (migrasi 002)
   storage_quota_bytes BIGINT UNSIGNED NULL,
   storage_used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
   last_login_at DATETIME NULL,
@@ -888,6 +894,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | POST `/api/auth/login` · `/api/auth/logout` | publik / login | |
 | POST `/api/auth/password` | login | `{current, next}` |
 | PATCH `/api/me` | login | `{displayName?, avatarColor?}` |
+| PUT `/api/me/avatar` · DELETE `/api/me/avatar` | login | foto profil: body mentah `image/*` ≤ 5 MB → WebP 256×256 (crop otomatis `attention`), file lama dihapus; balasan `{user}` dengan `avatarUrl` |
 | GET `/api/categories` | publik | kategori yang punya ≥1 video listable |
 | GET `/api/feed` | publik | `?category=&sort=latest|popular&cursor=` |
 | GET `/api/search` | publik | `?q=&cursor=` → `{videos, playlists(halaman 1 saja)}` |
@@ -922,7 +929,8 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/admin/videos` · PATCH/DELETE `/api/admin/videos/:id` · POST `/api/admin/videos/:id/reprocess` · POST `/api/admin/videos/bulk` | admin | |
 | GET `/api/admin/playlists` · PATCH/DELETE `/api/admin/playlists/:id` | admin | |
 | GET `/api/admin/settings` · PUT `/api/admin/settings/:group` | admin | group: site, drive, processing, upload, player, security |
-| POST `/api/admin/branding` | admin | multipart logo/favicon (png/svg/webp/ico ≤ 1 MB; svg disanitasi) |
+| PUT `/api/admin/branding/:slot` · DELETE | admin | slot `logo` (`?mode=icon\|full`), `logo_dark`, `favicon`; body mentah `image/*` (png/jpg/webp/gif/svg/avif ≤ 5 MB). **Semua gambar — termasuk SVG — di-render ulang ke PNG oleh sharp** (bukan sanitasi teks), sehingga skrip/markup SVG tidak pernah disajikan; balasan `{site}` |
+| DELETE `/api/admin/users/:id/avatar` | admin | hapus foto profil user (moderasi) |
 | GET `/api/admin/drive/status` | admin | terhubung?, email, folder, mode, error terakhir |
 | POST `/api/admin/drive/oauth/start` · GET `/api/admin/drive/oauth/callback` · POST `/api/admin/drive/disconnect` | admin | §7.2 |
 | POST `/api/admin/drive/service-account` | admin | upload/ tempel JSON |
@@ -943,7 +951,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 
 ### 15.1 Prinsip
 - Replikasi **perilaku & ukuran** YouTube desktop/mobile 2025-2026 secara presisi. Saat implementasi, buka youtube.com sebagai referensi visual dan cocokkan ukuran dengan DevTools; nilai di bawah adalah patokan.
-- Tidak memakai aset/logo/nama YouTube. Logo default: SVG sendiri (lingkaran merah dengan segitiga putih + wordmark "Dymas Video" Roboto 700, letter-spacing −0.5px, tinggi 20px), dapat diganti di admin.
+- Tidak memakai aset/logo/nama YouTube. Logo default: SVG sendiri (lingkaran merah dengan segitiga putih) + wordmark = `site.name` (kata pertama Roboto 700, sisanya 400), dapat diganti di admin (§18 Situs). Server menyisipkan `<title>`, favicon, apple-touch-icon dan `<script type="application/json" id="dv-site">` (data `/api/site`) ke setiap `index.html` sehingga nama/logo benar sejak render pertama (JSON tidak dieksekusi → aman untuk CSP).
 - Font: **Roboto** 400/500/700 self-host (`@fontsource/roboto`), fallback `Arial, sans-serif`. Basis `font-size: 10px` pada `html` (seperti YouTube) sehingga `1.4rem = 14px`.
 - Ikon: **Material Symbols Outlined** (Apache-2.0) sebagai SVG inline 24×24 `fill=currentColor`; varian *filled* untuk item navigasi aktif (seperti YouTube).
 - Semua teks UI di `web/src/i18n/id.ts`.
@@ -1174,6 +1182,7 @@ async function enterFullscreen() {
 - **Playlist**: tabel + ubah visibilitas/hapus.
 - **Antrean**: tabel jobs (tipe, video, status, percobaan, progres, error, waktu) + retry/hapus; auto-refresh 5 dtk.
 - **Pengaturan → Google Drive**: §7.2–7.3, kartu status koneksi, form kredensial (secret ditampilkan sebagai "Tersimpan ••••" dengan tombol Ganti), Redirect URI read-only + salin, tombol Hubungkan/Putuskan, form folder + "Tes koneksi" (menampilkan nama folder, jumlah video & subfolder), opsi subfolder & interval, panduan langkah demi langkah (collapsible), mode Service Account (textarea/upload JSON + email SA yang harus ditambahkan ke Shared Drive).
+- **Pengaturan → Situs**: nama aplikasi; logo/logo gelap/favicon (unggah, ganti, hapus → kembali ke bawaan) dengan pratinjau masthead terang & gelap; mode logo (ikon + nama / gambar saja); nama & handle channel utama; tema default; playlist tamu. Simpan → cache `['site']` diperbarui sehingga masthead & `<title>` langsung berubah.
 - **Log Aktivitas**: tabel audit dengan filter aksi.
 
 ---

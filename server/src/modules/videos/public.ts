@@ -266,14 +266,14 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
     if (handle === mainHandle) {
       channel = channelOf({ owner_user_id: null, owner_username: null, owner_name: null, owner_color: null });
     } else {
-      const u = await queryOne<{ id: number; username: string; display_name: string; avatar_color: string; status: string; created_at: Date }>(
-        'SELECT id, username, display_name, avatar_color, status, created_at FROM users WHERE username = ?',
+      const u = await queryOne<{ id: number; username: string; display_name: string; avatar_color: string; avatar_key: string | null; status: string; created_at: Date }>(
+        'SELECT id, username, display_name, avatar_color, avatar_key, status, created_at FROM users WHERE username = ?',
         [handle],
       );
       if (!u || u.status !== 'active') throw notFound('Channel tidak ditemukan');
       ownerId = u.id;
       joinedAt = new Date(u.created_at).toISOString();
-      channel = channelOf({ owner_user_id: u.id, owner_username: u.username, owner_name: u.display_name, owner_color: u.avatar_color });
+      channel = channelOf({ owner_user_id: u.id, owner_username: u.username, owner_name: u.display_name, owner_color: u.avatar_color, owner_avatar_key: u.avatar_key });
     }
     const [lw, lp] = listableSql(req.viewer);
     const countRow = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM videos v WHERE ${lw} AND v.owner_user_id <=> ?`, [...lp, ownerId]);

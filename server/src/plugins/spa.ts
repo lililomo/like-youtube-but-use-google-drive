@@ -7,11 +7,45 @@ import { errorBody } from '../lib/errors.js';
 /** Mengembalikan HTML meta (title, og:*) untuk disisipkan ke index.html, atau null. */
 export type MetaResolver = (req: FastifyRequest) => Promise<string | null>;
 
+/** Identitas situs yang disisipkan ke setiap index.html (nama, favicon, data awal untuk frontend). */
+export interface SiteHead {
+  title: string;
+  faviconUrl: string | null;
+  touchIconUrl: string | null;
+  /** Disajikan sebagai <script type="application/json" id="dv-site"> (bukan skrip yang dieksekusi → aman untuk CSP). */
+  boot: unknown;
+}
+
 const META_PLACEHOLDER = '<!--DV_META-->';
 const NON_SPA_PREFIXES = ['/api/', '/stream/', '/internal/', '/media/', '/assets/'];
 
-const FALLBACK_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Dymas Video</title></head>
+const FALLBACK_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>GDrive Tube</title></head>
 <body><p>Frontend belum di-build.</p></body></html>`;
+
+/** JSON aman di dalam <script type="application/json"> (tidak bisa menutup tag). */
+export function jsonForHtml(value: unknown): string {
+  return JSON.stringify(value).replaceAll('<', '\\u003c').replaceAll('>', '\\u003e').replaceAll('&', '\\u0026');
+}
+
+/** Sisipkan identitas situs: <title>, favicon, apple-touch-icon & data awal. */
+export function applySiteHead(html: string, site: SiteHead, meta: string | null): string {
+  let out = html;
+  if (meta) out = out.replace(/<title>[^<]*<\/title>/, '');
+  else out = out.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(site.title)}</title>`);
+  if (site.faviconUrl) {
+    out = out.replace(/<link rel="icon"[^>]*>/, `<link rel="icon" href="${escapeHtml(site.faviconUrl)}" type="image/png" />`);
+  }
+  const extra = [
+    site.touchIconUrl ? `<link rel="apple-touch-icon" href="${escapeHtml(site.touchIconUrl)}" />` : '',
+    `<meta name="application-name" content="${escapeHtml(site.title)}" />`,
+    `<meta name="apple-mobile-web-app-title" content="${escapeHtml(site.title)}" />`,
+    `<script type="application/json" id="dv-site">${jsonForHtml(site.boot)}</script>`,
+    meta ?? '',
+  ]
+    .filter(Boolean)
+    .join('\n    ');
+  return out.replace(META_PLACEHOLDER, extra);
+}
 
 export function escapeHtml(value: string): string {
   return value
@@ -28,7 +62,7 @@ export function escapeHtml(value: string): string {
  */
 export async function registerSpa(
   app: FastifyInstance,
-  opts: { distDir: string; metaResolver?: MetaResolver },
+  opts: { distDir: string; metaResolver?: MetaResolver; siteHead?: () => SiteHead },
 ): Promise<void> {
   const indexPath = join(opts.distDir, 'index.html');
   // Dibaca ulang bila file berubah (build web tanpa restart aplikasi tetap aman).
@@ -62,14 +96,16 @@ export async function registerSpa(
 
   const sendIndex = async (req: FastifyRequest, reply: FastifyReply) => {
     let html = loadIndex();
+    let meta: string | null = null;
     if (opts.metaResolver) {
       try {
-        const meta = await opts.metaResolver(req);
-        if (meta) html = html.replace(/<title>[^<]*<\/title>/, '').replace(META_PLACEHOLDER, meta);
+        meta = await opts.metaResolver(req);
       } catch (err) {
         req.log.warn({ err }, 'gagal membuat meta SPA');
       }
     }
+    if (opts.siteHead) html = applySiteHead(html, opts.siteHead(), meta);
+    else if (meta) html = html.replace(/<title>[^<]*<\/title>/, '').replace(META_PLACEHOLDER, meta);
     return reply
       .code(200)
       .header('Cache-Control', 'no-cache')

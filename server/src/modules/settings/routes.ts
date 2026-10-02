@@ -16,6 +16,7 @@ const SCHEMAS: Record<Group, z.ZodObject> = {
   site: z
     .object({
       name: z.string().trim().min(1).max(60),
+      logo_mode: z.enum(['icon', 'full']),
       channel_name: z.string().trim().min(1).max(60),
       channel_handle: z
         .string()

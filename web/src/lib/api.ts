@@ -23,6 +23,8 @@ export function csrfToken(): string {
 export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
+  /** Body mentah (mis. file gambar) — dikirim apa adanya dengan Content-Type file. */
+  raw?: Blob;
   signal?: AbortSignal;
   keepalive?: boolean;
 }
@@ -35,7 +37,10 @@ export async function api<T>(path: string, opts: ApiOptions = {}, retried = fals
   const method = opts.method ?? 'GET';
   const headers: Record<string, string> = { Accept: 'application/json' };
   const init: RequestInit = { method, credentials: 'same-origin', headers, signal: opts.signal, keepalive: opts.keepalive };
-  if (opts.body !== undefined) {
+  if (opts.raw) {
+    headers['Content-Type'] = opts.raw.type || 'application/octet-stream';
+    init.body = opts.raw;
+  } else if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(opts.body);
   }
@@ -73,6 +78,8 @@ export const apiPost = <T>(path: string, body?: unknown) => api<T>(path, { metho
 export const apiPatch = <T>(path: string, body: unknown) => api<T>(path, { method: 'PATCH', body });
 export const apiPut = <T>(path: string, body: unknown) => api<T>(path, { method: 'PUT', body });
 export const apiDelete = <T>(path: string, body?: unknown) => api<T>(path, { method: 'DELETE', body: body ?? {} });
+/** Kirim file (gambar) sebagai body mentah: PUT /api<path>. */
+export const apiPutFile = <T>(path: string, file: Blob) => api<T>(path, { method: 'PUT', raw: file });
 
 export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;

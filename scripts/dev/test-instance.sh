@@ -4,11 +4,15 @@
 #   bash scripts/dev/test-instance.sh start [--reseed]   # build harus sudah ada (npm run build)
 #   bash scripts/dev/test-instance.sh stop
 #   bash scripts/dev/test-instance.sh reset-db            # kosongkan DB uji + storage uji
+#   Di luar server (Claude cloud): ROOT diambil dari lokasi skrip, mysql = `mariadb`/`mysql` di PATH,
+#   Node ≥ 24 dari PATH (mis. /opt/node24/bin). Override: ROOT=… QA=… MYSQL=…
 set -euo pipefail
-ROOT=/www/wwwroot/video.dymas.cloud
-QA=/root/dv-qa
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
+QA=${QA:-/root/dv-qa}
 ENV=$QA/env.test
-export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
+[ -d /www/server/nodejs/v24.18.0/bin ] && export PATH=/www/server/nodejs/v24.18.0/bin:$PATH
+[ -d /opt/node24/bin ] && export PATH=/opt/node24/bin:$PATH
+MYSQL=${MYSQL:-$( [ -x /www/server/mysql/bin/mysql ] && echo /www/server/mysql/bin/mysql || command -v mariadb || command -v mysql )}
 
 ensure_env() {
   [ -f "$ENV" ] && return
@@ -49,7 +53,7 @@ case "${1:-}" in
   start)
     ensure_env
     stop
-    mkdir -p $QA/storage-test/{public/thumbs,public/sb,public/branding,cache/subs,tmp} $QA/fakedrive
+    mkdir -p $QA/storage-test/{public/thumbs,public/sb,public/branding,public/avatars,cache/subs,tmp} $QA/fakedrive
     SEED=""
     if [ "${2:-}" = "--reseed" ] || [ ! -f $QA/fakedrive/root-id.txt ]; then
       rm -rf $QA/fakedrive && mkdir -p $QA/fakedrive
@@ -71,8 +75,8 @@ case "${1:-}" in
   reset-db)
     stop
     P=$(cat $QA/.dbpass)
-    /www/server/mysql/bin/mysql -udummy_test -p"$P" dummy_test -N -e "SELECT CONCAT('DROP TABLE IF EXISTS \`',table_name,'\`;') FROM information_schema.tables WHERE table_schema='dummy_test'" > $QA/drop.sql
-    (echo "SET FOREIGN_KEY_CHECKS=0;"; cat $QA/drop.sql; echo "SET FOREIGN_KEY_CHECKS=1;") | /www/server/mysql/bin/mysql -udummy_test -p"$P" dummy_test
+    "$MYSQL" -S /tmp/mysql.sock -udummy_test -p"$P" dummy_test -N -e "SELECT CONCAT('DROP TABLE IF EXISTS \`',table_name,'\`;') FROM information_schema.tables WHERE table_schema='dummy_test'" > $QA/drop.sql
+    (echo "SET FOREIGN_KEY_CHECKS=0;"; cat $QA/drop.sql; echo "SET FOREIGN_KEY_CHECKS=1;") | "$MYSQL" -S /tmp/mysql.sock -udummy_test -p"$P" dummy_test
     rm -rf $QA/storage-test $QA/drop.sql
     echo "DB uji & storage uji dikosongkan"
     ;;

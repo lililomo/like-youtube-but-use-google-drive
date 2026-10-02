@@ -1,5 +1,5 @@
 /**
- * Pemutar video Dymas Video — vanilla TypeScript, tanpa dependensi (SPEC §16).
+ * Pemutar video GDrive Tube — vanilla TypeScript, tanpa dependensi (SPEC §16).
  * Satu instance per halaman tonton; ganti video dengan load() agar elemen <video>
  * (dan status layar penuh) tetap bertahan.
  */

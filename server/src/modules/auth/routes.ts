@@ -9,6 +9,7 @@ import {
   createSession,
   destroySession,
   ensureCsrfCookie,
+  loadSessionUser,
   publicUser,
   requireUser,
 } from '../../plugins/auth.js';
@@ -87,11 +88,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     await exec('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?', [row.id]);
     await audit(req, 'login.success', { type: 'user', id: row.id }, null, row.id);
 
-    const user = await queryOne<Parameters<typeof publicUser>[0]>(
-      `SELECT id, username, display_name, role, status, avatar_color, storage_quota_bytes, storage_used_bytes
-         FROM users WHERE id = ?`,
-      [row.id],
-    );
+    const user = await loadSessionUser(row.id);
     return { user: user ? publicUser(user) : null };
   });
 
@@ -133,11 +130,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
     await exec(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, [...params, user.id]);
     await audit(req, 'user.profile_update', { type: 'user', id: user.id }, body);
-    const fresh = await queryOne<Parameters<typeof publicUser>[0]>(
-      `SELECT id, username, display_name, role, status, avatar_color, storage_quota_bytes, storage_used_bytes
-         FROM users WHERE id = ?`,
-      [user.id],
-    );
+    const fresh = await loadSessionUser(user.id);
     return { user: fresh ? publicUser(fresh) : null };
   });
 }

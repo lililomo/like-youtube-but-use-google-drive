@@ -59,7 +59,7 @@ export function AdminLayout() {
           {!mid && <div className="dv-drawer-scrim is-open" onClick={() => setOpen(false)} />}
           <aside className={`dv-studio__sidebar${!mid ? ' is-overlay' : ''}`} key={!mid ? location.pathname : 'static'}>
             <div className="dv-studio__channel">
-              <Avatar name={user.displayName} color={user.avatarColor} size={mid ? 112 : 64} />
+              <Avatar name={user.displayName} color={user.avatarColor} src={user.avatarUrl} size={mid ? 112 : 64} />
               <div className="dv-studio__channel-label">Admin</div>
               <div className="dv-studio__channel-name">{user.displayName}</div>
             </div>

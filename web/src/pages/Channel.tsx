@@ -12,7 +12,7 @@ import { NotFoundPage } from './NotFound';
 
 type ChannelPage = Page<VideoSummary> & { channel: Channel & { videoCount: number; joinedAt: string | null; isMain: boolean } };
 
-/** Rute "/:handle" — hanya valid bila diawali "@" (contoh /@dymasvideo). */
+/** Rute "/:handle" — hanya valid bila diawali "@" (contoh /@gdrivetube). */
 export function ChannelPage() {
   const { handle = '' } = useParams();
   const valid = handle.startsWith('@') && handle.length > 1;
