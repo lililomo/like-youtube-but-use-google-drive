@@ -156,13 +156,28 @@ Item yang sudah `[x]` tidak dijalankan ulang. Langkah ditulis idempoten bila mem
 - **Rollback:** tidak ada perubahan konfigurasi server.
 - **Hasil:** _(diisi Claude di server)_
 
+### [ ] ST-006 — Step 15 (panel admin): verifikasi di produksi
+- **Asal:** Step 15 (branch `claude/cloud-pricing-token-63p7bp`)
+- **Kapan:** sesudah deploy
+- **Butuh user:** tidak (jangan menghapus/mengubah user atau video asli; pakai user uji yang dibuat lalu dihapus lagi)
+- **Kenapa:** dasbor memakai `statfs` folder storage, versi ffmpeg server, dan statistik DB produksi — perlu dicek tampil benar.
+- **Langkah:**
+  ```bash
+  bash scripts/dev/test-instance.sh start
+  cd /root/dv-qa && cp /www/wwwroot/video.dymas.cloud/scripts/dev/qa/admin-test.mjs . && CHROME_PATH=/root/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome node admin-test.mjs   # harus 29/29
+  bash /www/wwwroot/video.dymas.cloud/scripts/dev/test-instance.sh stop
+  ```
+  Lalu buka https://video.dymas.cloud/admin sebagai admin: dasbor (disk sesuai `df -h /www`, ffmpeg 4.4.2), Pengguna, Video, Log Aktivitas. Cek user biasa → `/admin` ditolak.
+- **Verifikasi:** admin-test 29/29; angka dasbor masuk akal.
+- **Rollback:** tidak ada perubahan konfigurasi server.
+- **Hasil:** _(diisi Claude di server)_
+
 ---
 
 ## Rencana (belum aktif — dipindah ke *Terbuka* saat step terkait di-push)
 
 Jangan dikerjakan sebelum dipindah ke *Terbuka*.
 
-- **Step 15** — Verifikasi panel admin di https://video.dymas.cloud setelah deploy.
 - **Step 16** — `/etc/logrotate.d/video_dymas` (harian, simpan 14, copytruncate, compress).
 - **Step 16** — Cron aaPanel "Backup Database" `dummy` harian 03:00, simpan 7 (API `bt-api.py` atau UI).
 - **Step 16** — Cek gzip nginx global aaPanel mencakup `application/json`, `text/css`, `application/javascript`, `image/svg+xml`.

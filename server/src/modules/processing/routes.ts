@@ -23,6 +23,16 @@ export async function jobSummary() {
   return { queued: by.queued ?? 0, running: by.running ?? 0, failed: by.failed ?? 0, done: by.done ?? 0, worker: workerStats() };
 }
 
+/** Proses ulang: hanya thumbnail, atau semuanya (rendition lama dihapus lalu probe ulang). */
+export async function enqueueReprocess(videoId: number, only: 'all' | 'thumbnail' = 'all'): Promise<void> {
+  if (only === 'thumbnail') {
+    await enqueueJob('thumbnail', { videoId });
+    return;
+  }
+  await enqueueJob('delete_assets', { videoId, payload: { mode: 'renditions' }, priority: 0 });
+  await enqueueJob('probe', { videoId, delayMs: 2000 });
+}
+
 export async function processingRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/admin/jobs', { preHandler: requireAdmin }, async (req) => {
     const q = parse(listQuery, req.query);
@@ -111,12 +121,7 @@ export async function processingRoutes(app: FastifyInstance): Promise<void> {
     if (!isVideoId(id)) throw notFound('Video tidak ditemukan');
     const v = await queryOne<{ id: number }>('SELECT id FROM videos WHERE public_id = ? AND deleted_at IS NULL', [id]);
     if (!v) throw notFound('Video tidak ditemukan');
-    if (body.only === 'thumbnail') {
-      await enqueueJob('thumbnail', { videoId: v.id });
-    } else {
-      await enqueueJob('delete_assets', { videoId: v.id, payload: { mode: 'renditions' }, priority: 0 });
-      await enqueueJob('probe', { videoId: v.id, delayMs: 2000 });
-    }
+    await enqueueReprocess(v.id, body.only);
     await audit(req, 'video.reprocess', { type: 'video', id }, body);
     return { ok: true };
   });

@@ -7,6 +7,12 @@ import { DriveSettingsPage } from './DriveSettings';
 import { JobsPage } from './Jobs';
 import { ProcessingSettingsPage } from './ProcessingSettings';
 import { SiteSettingsPage } from './SiteSettings';
+import { DashboardPage } from './Dashboard';
+import { UsersPage } from './Users';
+import { AdminVideosPage } from './Videos';
+import { AdminPlaylistsPage } from './Playlists';
+import { GroupSettingsPage } from './GroupSettings';
+import { AuditPage } from './Audit';
 
 /** Rute panel admin (di-lazy-load sebagai satu chunk). */
 export const adminRoutes: RouteObject[] = [
@@ -17,16 +23,18 @@ export const adminRoutes: RouteObject[] = [
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <AdminPlaceholder title={t.admin.dashboard} icon="dashboard" /> },
-      { path: 'users', element: <AdminPlaceholder title={t.admin.users} icon="group" /> },
-      { path: 'videos', element: <AdminPlaceholder title={t.admin.videos} icon="your-videos" /> },
-      { path: 'playlists', element: <AdminPlaceholder title={t.admin.playlists} icon="playlist-play" /> },
+      { index: true, element: <DashboardPage /> },
+      { path: 'users', element: <UsersPage /> },
+      { path: 'videos', element: <AdminVideosPage /> },
+      { path: 'playlists', element: <AdminPlaylistsPage /> },
       { path: 'jobs', element: <JobsPage /> },
       { path: 'settings/drive', element: <DriveSettingsPage /> },
       { path: 'settings/processing', element: <ProcessingSettingsPage /> },
       { path: 'settings/site', element: <SiteSettingsPage /> },
-      { path: 'settings/:group', element: <AdminPlaceholder title={t.admin.settings} icon="settings" /> },
-      { path: 'audit', element: <AdminPlaceholder title={t.admin.audit} icon="description" /> },
+      { path: 'settings/upload', element: <GroupSettingsPage group="upload" /> },
+      { path: 'settings/player', element: <GroupSettingsPage group="player" /> },
+      { path: 'settings/security', element: <GroupSettingsPage group="security" /> },
+      { path: 'audit', element: <AuditPage /> },
       { path: '*', element: <AdminPlaceholder title="404" icon="error" /> },
     ],
   },

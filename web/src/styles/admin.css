@@ -419,3 +419,103 @@
   font-size: 1.4rem;
   font-weight: 500;
 }
+
+/* ===== Step 15: dasbor, aksi massal, pengaturan ===== */
+.dv-studio-page--wide {
+  max-width: 1600px;
+}
+.dv-stat--link {
+  color: inherit;
+  transition: background 0.15s;
+}
+.dv-stat--link:hover {
+  background: var(--hover);
+}
+.dv-stat__sub {
+  margin-top: 4px;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+.dv-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.dv-dashboard__grid .dv-studio-card {
+  margin: 0;
+}
+.dv-dashboard__job {
+  margin-top: 12px;
+  font-size: 1.3rem;
+}
+.dv-dashboard__vid {
+  display: grid;
+  grid-template-columns: auto 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 1.3rem;
+}
+.dv-dashboard__vid:not(:has(.dv-dashboard__rank)) {
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+}
+.dv-dashboard__rank {
+  width: 16px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.dv-dashboard__thumb .dv-thumb {
+  border-radius: 4px;
+}
+.dv-dashboard__vtitle {
+  font-weight: 500;
+}
+.dv-bulkbar {
+  position: sticky;
+  top: var(--masthead-h, 64px);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: var(--cta-hover-bg);
+  font-size: 1.3rem;
+}
+.dv-studio-table__row.is-selected {
+  background: var(--cta-hover-bg);
+}
+.dv-field-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  min-width: 160px;
+}
+.dv-setting__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.dv-setting__label {
+  min-width: 280px;
+}
+.dv-setting__row .dv-select {
+  width: 240px;
+}
+.dv-setting__help {
+  margin-top: 4px;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+.dv-audit__meta {
+  max-width: 420px;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 1.2rem;
+}

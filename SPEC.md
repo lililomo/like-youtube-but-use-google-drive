@@ -927,8 +927,8 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/progress?ids=a,b,c` | login | untuk bar merah thumbnail |
 | GET `/api/admin/stats` · `/api/admin/system` | admin | dasbor; system: disk, versi ffmpeg/node, memori, ukuran antrean |
 | GET/POST `/api/admin/users` · PATCH/DELETE `/api/admin/users/:id` · POST `/api/admin/users/:id/reset-password` | admin | DELETE body `{videos:'delete'|'transfer'}` |
-| GET `/api/admin/videos` · PATCH/DELETE `/api/admin/videos/:id` · POST `/api/admin/videos/:id/reprocess` · POST `/api/admin/videos/bulk` | admin | |
-| GET `/api/admin/playlists` · PATCH/DELETE `/api/admin/playlists/:id` | admin | |
+| GET `/api/admin/videos` · POST `/api/admin/videos/:id/reprocess` · POST `/api/admin/videos/bulk` | admin | list: `?q&status(ready|processing|failed|missing)&visibility&owner(main|id)&category&sort(latest|oldest|views|size)&cursor`; bulk `{ids ≤ 200, action: public|private|reprocess|delete}` → `{done, failed[]}`. Ubah/hapus satu video memakai `PATCH/DELETE /api/videos/:id` (admin = pemilik) |
+| GET `/api/admin/playlists` | admin | `?q&visibility&kind(user|guest)&cursor`; ubah/hapus memakai `PATCH/DELETE /api/playlists/:id` |
 | GET `/api/admin/settings` · PUT `/api/admin/settings/:group` | admin | group: site, drive, processing, upload, player, security |
 | PUT `/api/admin/branding/:slot` · DELETE | admin | slot `logo` (`?mode=icon\|full`), `logo_dark`, `favicon`; body mentah `image/*` (png/jpg/webp/gif/svg/avif ≤ 5 MB). **Semua gambar — termasuk SVG — di-render ulang ke PNG oleh sharp** (bukan sanitasi teks), sehingga skrip/markup SVG tidak pernah disajikan; balasan `{site}` |
 | DELETE `/api/admin/users/:id/avatar` | admin | hapus foto profil user (moderasi) |
