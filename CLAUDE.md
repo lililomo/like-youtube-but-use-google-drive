@@ -24,7 +24,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 - [x] Step 4 — Fondasi frontend & design system YouTube — 2026-10-02
 - [~] Step 5 — Integrasi Google Drive — kode selesai & diuji tanpa akun Google (2026-10-02); **menunggu user** membuat OAuth Client + menghubungkan + memilih folder, lalu verifikasi nyata (status terhubung, tes folder, folder `_dymasvideo_system/renditions` terbentuk)
 - [x] Step 6 — Sinkronisasi folder — 2026-10-02 (diuji dengan fake Drive; verifikasi ulang dengan Drive asli setelah Step 5 terhubung)
-- [ ] Step 7 — Streaming
+- [x] Step 7 — Streaming — 2026-10-02 (diuji dengan fake Drive)
 - [ ] Step 8 — Pemrosesan media (ffmpeg)
 - [ ] Step 9 — Beranda, pencarian, kategori, channel
 - [ ] Step 10 — Pemutar inti
@@ -74,6 +74,7 @@ Dokumen acuan: [PRD.md](PRD.md) (produk) · [SPEC.md](SPEC.md) (teknis) · [PROM
 | Build web | `vite build` dengan `emptyOutDir:false` (aset lama dipertahankan, deploy menghapus aset > 7 hari); `index.html` dibaca ulang server bila berubah |
 | QA screenshot | `/root/dv-qa/shot.mjs` (playwright-core + Chromium cache `/root/.cache/ms-playwright/chromium_headless_shell-1234`) → `/root/dv-qa/shots/*.png`; `/root/dv-qa/yt.mjs` untuk pembanding youtube.com. Di luar folder proyek |
 | Sinkronisasi | `modules/sync/service.ts`: full sync BFS (kategori = subfolder, slug unik, subtitle cocok nama), incremental via Changes API, kunci `GET_LOCK('dv_sync')`, error API → batal tanpa menandai missing; penjadwal tiap 10 dtk cek jatuh tempo (incremental `drive.sync_interval_sec`, full `drive.full_sync_interval_min`), perubahan folder → full sync terjadwal 30 dtk. Endpoint `GET /api/admin/sync/status`, `POST /api/admin/sync/run {mode}`; simpan folder memicu full sync. Pemeliharaan per jam: hapus sesi/oauth state kedaluwarsa, upload expired, job selesai > 14 hari; tmp > 24 jam |
+| Streaming | `GET/HEAD /stream/:id/:q.mp4?e&s` (q: orig/compat/1080/720/480/360), signature HMAC (kunci HKDF "dv-stream", TTL 6 jam, video privat terikat `u<userId>`), Range diteruskan ke Drive, upstream dibatalkan saat klien putus, maks 8 stream/IP, cache video 10 dtk (`invalidateStreamCache()` saat visibilitas berubah). `/internal/drive/:fileId` hanya localhost + `X-Internal-Token` tanpa `X-Forwarded-For` (nginx juga memblok `/internal/`). Subtitle `GET /api/subtitles/:id.vtt` (SRT→VTT, BOM/UTF-16/windows-1252, cache `storage/cache/subs`). Detail `GET /api/videos/:id`, `/sources` |
 | Static web | `web/dist` — `/assets/*` disajikan nginx (immutable 1 th); `index.html` & SPA fallback oleh Fastify (`no-cache`) |
 | Log nginx situs | `/www/wwwlogs/video_dymas.log`, `/www/wwwlogs/video_dymas.error.log` |
 | `.env` | dibuat Step 1 (APP_KEY & INTERNAL_TOKEN acak), mode 600 milik www; backup `/root/backup/video_dymas.env` (600) |
@@ -136,3 +137,4 @@ Ringkasan keputusan produk ada di PRD.md §4. Penyimpangan dari SPEC selama ekse
 - 2026-10-02 — Step 5 (kode): klien Drive REST (undici keep-alive, retry/backoff, refresh token, OAuth & Service Account), klasifikasi file + parser URL folder (32 test), alur OAuth (state di `oauth_states`), service account, validasi folder + folder sistem + start page token, statistik folder, endpoint settings generik; halaman Studio Pengaturan → Google Drive dengan panduan. Menunggu kredensial user.
 - 2026-10-02 — Infra uji: fake Drive + DB `dummy_test` (aaPanel) + instance uji port 3299.
 - 2026-10-02 — Step 6: sinkronisasi full/incremental, kategori, subtitle, missing/restore, penjadwal & pemeliharaan, kartu Sinkronisasi di admin; diuji: tambah/rename/pindah/trash/restore/subtitle/folder baru/Drive mati.
+- 2026-10-02 — Step 7: streaming bertanda tangan + Range + abort, proxy internal ffmpeg, subtitle VTT, detail video & sumber; diuji (206/HEAD/403/404/privat/abort/subtitle).

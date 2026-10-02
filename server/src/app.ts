@@ -12,6 +12,11 @@ import { siteRoutes } from './modules/site/routes.js';
 import { settingsRoutes } from './modules/settings/routes.js';
 import { driveRoutes } from './modules/drive/routes.js';
 import { syncRoutes } from './modules/sync/routes.js';
+import { videoRoutes } from './modules/videos/routes.js';
+import { streamRoutes } from './modules/stream/routes.js';
+import { subtitleRoutes } from './modules/subtitles/routes.js';
+import fastifyStatic from '@fastify/static';
+import { join } from 'node:path';
 import { userRoutes } from './modules/users/routes.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerSpa } from './plugins/spa.js';
@@ -121,6 +126,20 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(settingsRoutes);
   await app.register(driveRoutes);
   await app.register(syncRoutes);
+  await app.register(videoRoutes);
+  await app.register(streamRoutes);
+  await app.register(subtitleRoutes);
+
+  // Produksi: /media disajikan nginx. Instance uji (SERVE_STATIC=1): disajikan Node.
+  if (config.SERVE_STATIC) {
+    await app.register(fastifyStatic, {
+      root: join(config.STORAGE_DIR, 'public'),
+      prefix: '/media/',
+      decorateReply: false,
+      cacheControl: false,
+      setHeaders: (res) => res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'),
+    });
+  }
 
   await registerSpa(app, { distDir: config.WEB_DIST_DIR });
 
