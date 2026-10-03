@@ -10,6 +10,7 @@ import { enqueueJob, jobEvents } from '../processing/queue.js';
 import { cancelRunningJob } from '../processing/worker.js';
 import { settings } from '../settings/service.js';
 import { thumbUrls } from '../videos/model.js';
+import { fillTitlesSoon } from './oembed.js';
 import { canonicalUrl, parseYoutubeLink, playlistUrl, splitLinks, unsupportedPlaylistReason } from './url.js';
 import { fetchPlaylist, MAX_HEIGHT, MAX_PLAYLIST_ITEMS, updateYtdlp, ytdlpPath, ytdlpVersion, type YtPlaylist } from './ytdlp.js';
 
@@ -139,6 +140,8 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
     const q = parse(listQuery, req.query);
     const rows = await query<Row>(`${SELECT} ${q.cursor ? 'WHERE i.id < ?' : ''} ORDER BY i.id DESC LIMIT ?`, q.cursor ? [q.cursor, q.limit + 1] : [q.limit + 1]);
     const items = rows.slice(0, q.limit).map(present);
+    // Termasuk baris lama / yang judulnya gagal diambil saat ditambahkan (dibatasi 1×/jam per impor).
+    fillTitlesSoon(items.filter((i) => !i.title && i.status !== 'done').map((i) => i.id), req.log);
     const counts = await query<{ s: string; n: number }>(
       `SELECT CASE WHEN i.phase = 'done' THEN 'done' WHEN j.status IN ('failed','cancelled') THEN j.status
                    WHEN j.status = 'running' THEN 'running' ELSE 'queued' END AS s, COUNT(*) AS n
@@ -202,6 +205,7 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
     if (candidates.length > MAX_TOTAL) throw badRequest(`Terlalu banyak video sekaligus (${candidates.length}); maksimal ${MAX_TOTAL}`);
 
     let added = 0;
+    const untitled: number[] = [];
     for (const c of candidates) {
       if (!body.force) {
         const prev = await queryOne<{ phase: string; job_status: string | null; v_deleted: Date | null; video_id: number | null }>(
@@ -237,10 +241,13 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
       );
       const jobId = await enqueueJob('yt_import', { payload: { importId: res.insertId } });
       await exec('UPDATE youtube_imports SET job_id = ? WHERE id = ?', [jobId, res.insertId]);
+      if (!c.title) untitled.push(res.insertId);
       added++;
       const pl = c.playlist && playlists.find((p) => p.id === c.playlist!.id);
       if (pl) pl.added++;
     }
+    // Link video tunggal belum punya judul (isi playlist sudah dari --flat-playlist) → ambil lewat oEmbed.
+    fillTitlesSoon(untitled, req.log);
     if (added) await audit(req, 'import.add', null, { count: added, visibility, categoryId: body.categoryId ?? null, playlists: playlists.map((p) => p.id) });
     reply.code(added ? 201 : 200);
     return { added, skipped, playlists };

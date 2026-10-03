@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseOembed } from './oembed.js';
 import { driveFileName } from './service.js';
 import { parseYoutubeId, parseYoutubeLink, splitLinks, unsupportedPlaylistReason } from './url.js';
 import { explainYtdlpError, summarizeInfo, summarizePlaylist, YtPermanentError } from './ytdlp.js';
@@ -109,5 +110,16 @@ describe('ytdlp helpers', () => {
   it('nama file Drive dari judul', () => {
     expect(driveFileName('  Judul\u0007 /  Bagus  ', 'abc', '.mp4')).toBe('Judul / Bagus.mp4');
     expect(driveFileName('   ', 'XjmTfkf8z3c', '.mkv')).toBe('XjmTfkf8z3c.mkv');
+  });
+
+  it('judul & channel dari oEmbed', () => {
+    expect(parseOembed({ title: "I'm Best Muslim S4 //  Ep 02\n", author_name: 'FreeQuranEducationIndonesia', type: 'video' })).toEqual({
+      title: "I'm Best Muslim S4 // Ep 02",
+      channel: 'FreeQuranEducationIndonesia',
+    });
+    expect(parseOembed({ title: 'Tanpa channel' })).toEqual({ title: 'Tanpa channel', channel: null });
+    expect(parseOembed({ title: '   ' })).toBeNull();
+    expect(parseOembed('Bad Request')).toBeNull();
+    expect(parseOembed(null)).toBeNull();
   });
 });
