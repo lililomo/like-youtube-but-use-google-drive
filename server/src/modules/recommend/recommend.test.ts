@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeStats } from './catalog.js';
+import { computeStats, qualityScore } from './catalog.js';
 import { buildFeatures, cosine, parseEpisode, tokenize, type ItemInput } from './features.js';
 import { buildProfile, hashUnit, rankHome, rankRelated, type Candidate, type WatchRow } from './rank.js';
 
@@ -63,6 +63,15 @@ describe('fitur konten', () => {
     const v = fs.vectorize(item(999, 'Belajar Huruf Hijaiyah Eps 9: Huruf Kaf', { playlistId: 'PLhija', playlistIndex: 9 }));
     expect(cosine(v.vec, fs.items.get(8)!.vec)).toBeGreaterThan(0.5);
     expect(v.series).toEqual({ key: 'st:belajar huruf hijaiyah', pos: 9 });
+  });
+});
+
+describe('kualitas', () => {
+  it('data sedikit → 1 tayangan tidak mendominasi; data banyak → populer tinggi', () => {
+    expect(qualityScore(1, 1, 0, 0)).toBeLessThan(0.2);
+    expect(qualityScore(5000, 5000, 0, 0)).toBeCloseTo(1, 6);
+    expect(qualityScore(50, 5000, 0, 0)).toBeLessThan(qualityScore(500, 5000, 0, 0));
+    expect(qualityScore(0, 100, 40, 40)).toBeCloseTo(0.5, 6);
   });
 });
 

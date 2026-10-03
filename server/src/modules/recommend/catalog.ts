@@ -82,6 +82,16 @@ export function setRecommendLogger(l: FastifyBaseLogger): void {
   log = l;
 }
 
+/**
+ * Kualitas 0..1 dari popularitas (tayangan) & tren (penonton 7 hari). Dinormalisasi terhadap batas bawah (100 tayangan,
+ * 20 penonton): saat data masih sedikit, 1 tayangan tidak membuat video selalu teratas — acak & minat lebih menentukan.
+ */
+export function qualityScore(views: number, maxViews: number, trend: number, maxTrend: number): number {
+  const pop = Math.log1p(views) / Math.log1p(Math.max(maxViews, 100));
+  if (maxTrend <= 0) return pop;
+  return 0.5 * pop + 0.5 * (Math.log1p(trend) / Math.log1p(Math.max(maxTrend, 20)));
+}
+
 async function buildCatalog(st: Stats): Promise<Catalog> {
   const [lw, lp] = discoverableSql();
   const rows = await query<VideoRow>(
@@ -97,10 +107,8 @@ async function buildCatalog(st: Stats): Promise<Catalog> {
   let maxTrend = 0;
   for (const n of st.trend.values()) maxTrend = Math.max(maxTrend, n);
   const candidates: Candidate[] = rows.map((r) => {
-    const pop = Math.log1p(Number(r.view_count)) / Math.log1p(maxViews);
-    const trend = maxTrend > 0 ? Math.log1p(st.trend.get(r.id) ?? 0) / Math.log1p(maxTrend) : null;
     const age = Math.max(0, now - new Date(r.published_at).getTime()) / DAY;
-    return { id: r.id, f: features.items.get(r.id)!, quality: trend === null ? pop : 0.5 * pop + 0.5 * trend, fresh: Math.exp(-age / 14) };
+    return { id: r.id, f: features.items.get(r.id)!, quality: qualityScore(Number(r.view_count), maxViews, st.trend.get(r.id) ?? 0, maxTrend), fresh: Math.exp(-age / 14) };
   });
   return {
     builtAt: now,
