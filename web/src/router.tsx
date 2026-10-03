@@ -37,6 +37,17 @@ export const router = createBrowserRouter([
               })),
           },
           {
+            path: 'my/imports',
+            lazy: () =>
+              import('./pages/MyImports').then((m) => ({
+                Component: () => (
+                  <RequireAuth>
+                    <m.MyImportsPage />
+                  </RequireAuth>
+                ),
+              })),
+          },
+          {
             path: 'account',
             element: (
               <RequireAuth>

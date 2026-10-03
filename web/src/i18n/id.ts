@@ -30,6 +30,8 @@ export const t = {
     categories: 'Kategori',
     admin: 'Panel Admin',
     upload: 'Upload',
+    uploadVideo: 'Upload video',
+    importYoutube: 'Impor dari YouTube',
   },
   search: {
     placeholder: 'Telusuri',

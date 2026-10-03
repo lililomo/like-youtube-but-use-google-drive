@@ -59,6 +59,20 @@ export function discoverableSql(alias = 'v'): [string, unknown[]] {
 }
 
 /**
+ * Tab Video halaman channel milik `ownerId` (null = channel utama). Pengunjung lain: sama dengan daftar penemuan
+ * (hanya publik). Pemilik yang membuka channel-nya sendiri juga melihat video PRIVAT-nya (seperti "Video Anda");
+ * admin tidak mendapat pengecualian di channel orang lain maupun channel utama.
+ * @returns [sql, params]
+ */
+export function channelVideosSql(viewer: Viewer, ownerId: number | null, alias = 'v'): [string, unknown[]] {
+  if (ownerId != null && isOwner(ownerId, viewer)) {
+    return [`${alias}.deleted_at IS NULL AND ${alias}.status = 'ready' AND ${alias}.owner_user_id = ?`, [ownerId]];
+  }
+  const [w, p] = discoverableSql(alias);
+  return [`${w} AND ${alias}.owner_user_id <=> ?`, [...p, ownerId]];
+}
+
+/**
  * Isi playlist (milik siapa pun) untuk viewer: video publik + video privat MILIK viewer sendiri.
  * Admin tidak melihat video privat orang lain di playlist (kelola lewat /admin).
  * @param alias alias tabel videos

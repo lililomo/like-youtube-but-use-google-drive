@@ -6,7 +6,7 @@ import { notFound } from '../../lib/errors.js';
 import { LruCache } from '../../lib/lru.js';
 import { parse } from '../../lib/validate.js';
 import { requireUser } from '../../plugins/auth.js';
-import { discoverableSql, type Viewer } from '../../plugins/access.js';
+import { channelVideosSql, discoverableSql, type Viewer } from '../../plugins/access.js';
 import { settings } from '../settings/service.js';
 import { channelOf, toSummary, VIDEO_SELECT, type VideoRecord } from './model.js';
 import { loadWatchable } from './routes.js';
@@ -320,15 +320,17 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
       joinedAt = new Date(u.created_at).toISOString();
       channel = channelOf({ owner_user_id: u.id, owner_username: u.username, owner_name: u.display_name, owner_color: u.avatar_color, owner_avatar_key: u.avatar_key });
     }
-    const [lw, lp] = discoverableSql();
-    const countRow = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM videos v WHERE ${lw} AND v.owner_user_id <=> ?`, [...lp, ownerId]);
+    // Pemilik yang membuka channel-nya sendiri juga melihat video privatnya (hanya dia).
+    const isOwner = ownerId !== null && req.viewer.userId === ownerId;
+    const [lw, lp] = channelVideosSql(req.viewer, ownerId);
+    const countRow = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM videos v WHERE ${lw}`, lp);
     let items: unknown[] = [];
     let nextCursor: string | null = null;
     if (q.tab === 'videos') {
       const { sql, params } = FEED_SELECT(req.viewer);
       const offset = q.cursor ?? 0;
       const order = q.sort === 'popular' ? 'v.view_count DESC, v.id DESC' : 'v.published_at DESC, v.id DESC';
-      const rows = await query<Row>(`${sql} WHERE ${lw} AND v.owner_user_id <=> ? ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, ...lp, ownerId, PAGE + 1, offset]);
+      const rows = await query<Row>(`${sql} WHERE ${lw} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, ...lp, PAGE + 1, offset]);
       items = summarize(rows.slice(0, PAGE), req.viewer);
       nextCursor = rows.length > PAGE ? String(offset + PAGE) : null;
     } else if (ownerId !== null) {
@@ -345,6 +347,6 @@ export async function publicVideoRoutes(app: FastifyInstance): Promise<void> {
       items = await summarizePlaylists(rows.slice(0, PAGE), req.viewer);
       nextCursor = rows.length > PAGE ? String(offset + PAGE) : null;
     }
-    return { channel: { ...channel, videoCount: Number(countRow?.n ?? 0), joinedAt, isMain: ownerId === null }, items, nextCursor };
+    return { channel: { ...channel, videoCount: Number(countRow?.n ?? 0), joinedAt, isMain: ownerId === null, isOwner }, items, nextCursor };
   });
 }

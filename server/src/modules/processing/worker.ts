@@ -86,7 +86,8 @@ async function execute(job: JobRow): Promise<void> {
       ]);
       ctx.log.warn({ delayMs: err.delayMs }, message);
     } else if (ac.signal.aborted) {
-      await exec("UPDATE jobs SET status = 'cancelled', finished_at = UTC_TIMESTAMP(), last_error = 'dibatalkan admin' WHERE id = ?", [job.id]);
+      const reason = typeof ac.signal.reason === 'string' ? ac.signal.reason : 'dibatalkan admin';
+      await exec("UPDATE jobs SET status = 'cancelled', finished_at = UTC_TIMESTAMP(), last_error = ? WHERE id = ?", [reason, job.id]);
     } else if (err instanceof FatalJobError || job.attempts >= job.max_attempts) {
       await exec("UPDATE jobs SET status = 'failed', finished_at = UTC_TIMESTAMP(), last_error = ? WHERE id = ?", [message.slice(0, 4000), job.id]);
       ctx.log.warn({ err: message }, 'job gagal permanen');
@@ -124,10 +125,11 @@ async function fill(lane: Lane): Promise<void> {
 }
 
 /** Batalkan job yang sedang berjalan (admin). */
-export function cancelRunningJob(id: number): boolean {
+/** @param reason disimpan sebagai last_error job (default "dibatalkan admin"). */
+export function cancelRunningJob(id: number, reason?: string): boolean {
   const ac = controllers.get(id);
   if (!ac) return false;
-  ac.abort();
+  ac.abort(reason);
   return true;
 }
 

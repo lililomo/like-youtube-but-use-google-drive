@@ -17,6 +17,7 @@ Butuh `playwright-core` (pasang di folder lain, mis. `/root/dv-qa`: `npm i playw
 | `ttff.mjs <videoId>...` | Ukur waktu sampai video bisa diputar & setelah seek 60% per sumber (orig/720) di produksi (Chromium dengan H.264) |
 | `rec-ui-test.mjs` | Rekomendasi (REKOMENDASI.md): chip, beranda berganti urutan tiap dibuka, tombol Kembali memulihkan urutan, Tidak tertarik + Urungkan, progres tamu, mobile (12 cek) |
 | `security-test.mjs` | Step 16: uji keamanan black-box (±56 cek termasuk rekomendasi personal; jalankan setelah `upload-test.mjs`). **Mengunci login dari 127.0.0.1 15 menit** → restart instance uji sesudahnya |
+| `import-test.mjs` | Impor YouTube untuk semua user (`/my/imports`): menu Upload, antrean global + urutan, akses lintas user, kuota/milik pemilik, video privat di channel sendiri, Studio kolom Channel, HP (16 cek). Butuh yt-dlp palsu: di `env.test` set `YTDLP_PATH=<repo>/scripts/dev/fake-yt-dlp.mjs` lalu restart instance uji (jangan memancing verifikasi "bukan bot" YouTube dari IP server) |
 | `api.sh` | Helper curl: `source api.sh; login; get /api/...; post /api/... '{json}'` |
 | `drive-peek.mjs` | Lihat isi folder Drive produksi (read-only), jalankan di server |
 

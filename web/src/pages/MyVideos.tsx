@@ -2,13 +2,14 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Icon } from '../components/icons/Icon';
-import { Button, IconButton } from '../components/ui/Button';
+import { Button, ButtonLink, IconButton } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { EmptyState, Spinner } from '../components/ui/misc';
+import { StudioTabs } from '../components/imports/StudioTabs';
 import { DeleteVideoDialog, RenameDialog } from '../components/video/OwnerActions';
 import { Thumbnail } from '../components/video/Thumbnail';
 import { InfiniteSentinel } from '../components/video/VideoGrid';
-import { useDocumentTitle } from '../hooks/useSite';
+import { useDocumentTitle, useSite } from '../hooks/useSite';
 import { apiDelete, apiGet, apiPatch, csrfToken, errorMessage } from '../lib/api';
 import { formatBytes, formatDate, formatViews } from '../lib/format';
 import type { VideoDetail, VideoSummary } from '../lib/types';
@@ -224,6 +225,8 @@ export function MyVideosPage() {
   const [params, setParams] = useSearchParams();
   const openUpload = useUploads((s) => s.openDialog);
   const user = useSession((s) => s.user);
+  const site = useSite();
+  const canImport = site.importEnabled || user?.role === 'admin';
   const [q, setQ] = useState('');
   const [qDebounced, setQDebounced] = useState('');
   const [visibility, setVisibility] = useState('');
@@ -260,11 +263,19 @@ export function MyVideosPage() {
 
   return (
     <div className="dv-myvideos">
+      <StudioTabs />
       <div className="dv-myvideos__head">
         <h1 className="dv-plgrid-page__title">Video Anda</h1>
-        <Button variant="primary" icon="upload" onClick={openUpload}>
-          Upload video
-        </Button>
+        <div className="dv-row">
+          {canImport && (
+            <ButtonLink to="/my/imports" icon="download">
+              Impor YouTube
+            </ButtonLink>
+          )}
+          <Button variant="primary" icon="upload" onClick={openUpload}>
+            Upload video
+          </Button>
+        </div>
       </div>
       {user && (
         <p className="dv-text-secondary dv-mb-16">

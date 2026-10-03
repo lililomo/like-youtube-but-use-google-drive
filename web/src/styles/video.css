@@ -408,6 +408,14 @@
   color: var(--text);
   font-weight: 500;
 }
+.dv-channel__owner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  font-size: 1.2rem;
+}
 .dv-channel .dv-chipbar {
   padding: 0 24px;
 }

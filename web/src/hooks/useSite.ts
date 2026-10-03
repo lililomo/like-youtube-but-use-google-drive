@@ -16,6 +16,8 @@ export interface SiteInfo {
   defaultTheme: ThemePref;
   guestPlaylists: boolean;
   uploadEnabled: boolean;
+  /** Pengguna boleh mengimpor dari YouTube ke channel sendiri (admin selalu boleh). */
+  importEnabled: boolean;
   player: { autoplayDefault: boolean; seekSeconds: number; endscreenCountdown: number };
 }
 
@@ -33,6 +35,7 @@ const FALLBACK: SiteInfo = {
   defaultTheme: 'system',
   guestPlaylists: true,
   uploadEnabled: true,
+  importEnabled: true,
   player: { autoplayDefault: true, seekSeconds: 10, endscreenCountdown: 5 },
 };
 

@@ -5,6 +5,7 @@ import {
   canEditVideo,
   canViewPlaylist,
   canWatch,
+  channelVideosSql,
   discoverableSql,
   listableSql,
   type PlaylistAccessFields,
@@ -125,6 +126,26 @@ describe('discoverableSql', () => {
     expect(sql).not.toContain('owner_user_id');
     expect(params).toEqual([]);
     expect(discoverableSql('x')[0]).toContain("x.visibility = 'public'");
+  });
+});
+
+describe('channelVideosSql', () => {
+  it('pemilik di channel sendiri: publik + privat miliknya; selain itu hanya publik', () => {
+    const [own, ownP] = channelVideosSql(owner, 10);
+    expect(own).toBe("v.deleted_at IS NULL AND v.status = 'ready' AND v.owner_user_id = ?");
+    expect(ownP).toEqual([10]);
+    for (const [viewer, ownerId] of [
+      [guest, 10],
+      [admin, 10],
+      [owner, 11],
+      [owner, null],
+      [admin, null],
+    ] as const) {
+      const [sql, params] = channelVideosSql(viewer, ownerId);
+      expect(sql).toBe("v.deleted_at IS NULL AND v.status = 'ready' AND v.visibility = 'public' AND v.owner_user_id <=> ?");
+      expect(params).toEqual([ownerId]);
+    }
+    expect(channelVideosSql(guest, null, 'x')[0]).toContain('x.owner_user_id <=> ?');
   });
 });
 

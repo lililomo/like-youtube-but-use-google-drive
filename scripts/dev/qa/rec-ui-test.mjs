@@ -13,6 +13,11 @@ const titles = async () => {
   await page.waitForSelector('.dv-vcard__title a');
   return page.$$eval('.dv-vcard__title a', (as) => as.map((a) => a.textContent.trim()));
 };
+/** ID video kartu beranda (judul bisa kembar, mis. video yang sama diimpor beberapa kali). */
+const cardIds = async () => {
+  await page.waitForSelector('.dv-vcard__title a');
+  return page.$$eval('.dv-vcard__title a', (as) => as.map((a) => new URL(a.href).searchParams.get('v')));
+};
 await page.goto(`${BASE}/`);
 const first = await titles();
 check('beranda tampil', first.length > 0, `${first.length} video`);
@@ -38,6 +43,7 @@ for (let i = 0; i < 4 && !changed; i++) {
 check('klik logo (beranda dibuka lagi) → urutan baru', changed);
 // Tidak tertarik
 const target = (await titles())[0];
+const targetId = (await cardIds())[0];
 await page.hover('.dv-vcard >> nth=0');
 await page.click('.dv-vcard >> nth=0 >> .dv-video-menu-btn');
 await page.waitForSelector('text=Tidak tertarik');
@@ -54,7 +60,7 @@ await page.click('.dv-vcard >> nth=0 >> .dv-video-menu-btn');
 await Promise.all([page.waitForResponse((r) => r.url().includes('/api/recommend/not-interested')), page.click('text=Tidak tertarik')]);
 await page.click('.dv-logo');
 await page.waitForTimeout(700);
-check('video tidak muncul lagi di beranda baru', !(await titles()).includes(target), target);
+check('video tidak muncul lagi di beranda baru', !(await cardIds()).includes(targetId), `${target} (${targetId})`);
 const csrf = (await ctx.cookies()).find((c) => c.name === 'dv_csrf')?.value ?? '';
 const tid = await page.evaluate(async (t) => {
   const r = await fetch('/api/search?q=' + encodeURIComponent(t));

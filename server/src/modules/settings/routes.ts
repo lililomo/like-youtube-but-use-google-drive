@@ -64,6 +64,8 @@ const SCHEMAS: Record<Group, z.ZodObject> = {
       chunk_mb: z.union([z.literal(8), z.literal(16), z.literal(32)]),
       default_visibility: z.enum(['public', 'private']),
       default_quota_gb: z.number().min(0).max(1_000_000).nullable(),
+      youtube_import: z.boolean(),
+      import_max_queued: z.number().int().min(1).max(5000),
     })
     .partial()
     .strict(),

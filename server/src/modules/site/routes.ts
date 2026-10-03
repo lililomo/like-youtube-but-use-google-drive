@@ -15,6 +15,7 @@ export function siteInfo() {
     defaultTheme: settings.get('site.default_theme'),
     guestPlaylists: settings.get('site.guest_playlists'),
     uploadEnabled: settings.get('upload.enabled'),
+    importEnabled: settings.get('upload.enabled') && settings.get('upload.youtube_import'),
     player: {
       autoplayDefault: settings.get('player.autoplay_default'),
       seekSeconds: settings.get('player.seek_seconds'),

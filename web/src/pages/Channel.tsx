@@ -5,6 +5,7 @@ import { ApiError, apiGet } from '../lib/api';
 import { formatVideoCount } from '../lib/format';
 import type { Channel, Page, VideoSummary } from '../lib/types';
 import { useDocumentTitle } from '../hooks/useSite';
+import { ButtonLink } from '../components/ui/Button';
 import { Avatar, EmptyState, Skeleton } from '../components/ui/misc';
 import { ChipBar } from '../components/video/ChipBar';
 import { InfiniteSentinel, VideoGrid } from '../components/video/VideoGrid';
@@ -12,7 +13,7 @@ import { NotFoundPage } from './NotFound';
 import { PlaylistGrid } from '../components/playlist/PlaylistCard';
 import type { PlaylistSummary } from '../lib/types';
 
-type ChannelPage = Page<VideoSummary> & { channel: Channel & { videoCount: number; joinedAt: string | null; isMain: boolean } };
+type ChannelPage = Page<VideoSummary> & { channel: Channel & { videoCount: number; joinedAt: string | null; isMain: boolean; isOwner?: boolean } };
 
 /** Rute "/:handle" — hanya valid bila diawali "@" (contoh /@gdrivetube). */
 export function ChannelPage() {
@@ -52,6 +53,12 @@ export function ChannelPage() {
               <b>@{channel.handle}</b>
               <span className="dv-dot">•</span>
               {formatVideoCount(channel.videoCount)}
+            </div>
+          )}
+          {channel?.isOwner && (
+            <div className="dv-channel__owner">
+              <ButtonLink to="/my/videos">Kelola video</ButtonLink>
+              <span className="dv-text-secondary">Video privat Anda ikut tampil di sini, hanya untuk Anda.</span>
             </div>
           )}
         </div>

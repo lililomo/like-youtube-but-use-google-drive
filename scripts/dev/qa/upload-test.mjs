@@ -29,6 +29,9 @@ try {
 
   // 1. Upload biasa lewat tombol Upload di masthead
   await page.click('.dv-create-btn');
+  // Tombol Upload membuka menu (Upload video / Impor dari YouTube) bila impor diizinkan.
+  const menuItem = page.locator('.dv-menu-item:has-text("Upload video")');
+  if (await menuItem.isVisible({ timeout: 1500 }).catch(() => false)) await menuItem.click();
   await page.waitForSelector('.dv-upload-drop');
   await page.screenshot({ path: `${SHOTS}/s14-dialog.png` });
   await page.setInputFiles('.dv-upload-dialog input[type=file][multiple]', small);

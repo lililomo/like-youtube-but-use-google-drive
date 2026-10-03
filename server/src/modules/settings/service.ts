@@ -53,6 +53,10 @@ export const SETTING_DEFAULTS = {
   'upload.chunk_mb': 16,
   'upload.default_visibility': 'public' as 'public' | 'private',
   'upload.default_quota_gb': null as number | null,
+  /** Pengguna boleh mengimpor video dari YouTube ke channel sendiri (dihitung sebagai upload; butuh upload.enabled). */
+  'upload.youtube_import': true,
+  /** Batas video impor YouTube yang menunggu/berjalan per pengguna (admin tidak dibatasi). */
+  'upload.import_max_queued': 200,
 
   'player.autoplay_default': true,
   'player.seek_seconds': 10,

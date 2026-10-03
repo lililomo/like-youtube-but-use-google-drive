@@ -130,10 +130,17 @@ for (const [name, c] of [
   check(`${name}: tidak bisa ubah/hapus video orang lain`, [401, 403, 404].includes((await c.del(`/api/videos/${P.id}`)).status));
   check(`${name}: /api/admin/* ditolak`, [401, 403].includes((await c.get('/api/admin/stats')).status));
 }
-const myCount = (await budi.get('/api/channels/@budi')).json.channel.videoCount;
-const guestCount = (await guest.get('/api/channels/@budi')).json.channel.videoCount;
-// Sejak 2026-10-03 video privat tidak dihitung di halaman channel untuk siapa pun (termasuk pemilik) — discoverableSql.
-check('jumlah video channel: privat tidak dihitung, pemilik = tamu', myCount === guestCount, `${myCount} vs ${guestCount}`);
+// Sejak 2026-10-03 (permintaan user): pemilik yang membuka channel-nya sendiri melihat video privatnya (dan ikut dihitung);
+// tamu, user lain, dan admin tetap hanya melihat video publik di channel itu (channelVideosSql).
+const ownCh = (await budi.get('/api/channels/@budi?sort=latest')).json;
+const guestCh = (await guest.get('/api/channels/@budi')).json;
+const adminCh = (await admin.get('/api/channels/@budi')).json;
+check(
+  'channel sendiri: pemilik melihat video privat & ikut dihitung',
+  has(ownCh.items, P.id) && ownCh.channel.isOwner === true && ownCh.channel.videoCount > guestCh.channel.videoCount,
+  `${ownCh.channel.videoCount} vs ${guestCh.channel.videoCount}`,
+);
+check('channel orang lain dilihat admin: video privat tidak ada', !has(adminCh.items, P.id) && adminCh.channel.isOwner === false && adminCh.channel.videoCount === guestCh.channel.videoCount);
 
 // CSRF & Origin
 check('CSRF: POST tanpa header → 403', (await budi.post('/api/playlists', { title: 'x' }, { noCsrf: true })).status === 403);

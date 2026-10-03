@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { useSite } from '../../hooks/useSite';
 import { apiGet } from '../../lib/api';
 import { formatBytes } from '../../lib/format';
@@ -32,6 +33,8 @@ export function UploadDialog() {
   const add = useUploads((s) => s.add);
   const user = useSession((s) => s.user);
   const site = useSite();
+  const navigate = useNavigate();
+  const canImport = site.importEnabled || user?.role === 'admin';
   const input = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<Picked[]>([]);
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
@@ -96,6 +99,18 @@ export function UploadDialog() {
             Format: {DEFAULT_EXT.join(', ')}
             {free != null && <> · Sisa kuota: {formatBytes(free)}</>}
           </p>
+          {canImport && (
+            <Button
+              variant="cta-text"
+              icon="download"
+              onClick={() => {
+                close();
+                navigate('/my/imports');
+              }}
+            >
+              Atau impor dari link YouTube
+            </Button>
+          )}
         </div>
       ) : (
         <div className="dv-upload-details">

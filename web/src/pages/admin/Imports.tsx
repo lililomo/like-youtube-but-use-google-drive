@@ -1,62 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { Icon } from '../../components/icons/Icon';
+import { ImportForm, ImportVideoCell, STATUS_LABEL, VIDEO_STATUS, type ImportItem, type QueueCounts } from '../../components/imports/ImportShared';
 import { Button } from '../../components/ui/Button';
 import { EmptyState, Spinner } from '../../components/ui/misc';
-import { useDocumentTitle } from '../../hooks/useSite';
+import { useDocumentTitle, useSite } from '../../hooks/useSite';
 import { apiDelete, apiGet, apiPost, errorMessage } from '../../lib/api';
-import { formatBytes, formatDateTime, formatDuration, formatRelative } from '../../lib/format';
+import { formatBytes, formatDateTime, formatRelative } from '../../lib/format';
 import { toast } from '../../stores/toast';
-
-type Status = 'queued' | 'downloading' | 'uploading' | 'done' | 'failed' | 'cancelled';
-
-interface ImportItem {
-  id: number;
-  url: string;
-  ytId: string;
-  playlist: { id: string; title: string | null; index: number | null } | null;
-  title: string | null;
-  channel: string | null;
-  durationSec: number | null;
-  quality: string | null;
-  sizeBytes: number | null;
-  visibility: 'public' | 'private';
-  category: string | null;
-  status: Status;
-  progress: number;
-  error: string | null;
-  attempts: number;
-  maxAttempts: number;
-  retryAt: string | null;
-  createdAt: string;
-  finishedAt: string | null;
-  video: { id: string; title: string | null; status: string | null; thumb: string | null } | null;
-}
 
 interface ImportsResponse {
   items: ImportItem[];
   nextCursor: string | null;
+  queue: QueueCounts;
   summary: Record<'queued' | 'running' | 'done' | 'failed' | 'cancelled', number>;
   maxHeight: number;
   maxPlaylistItems: number;
 }
 
-interface CategoryOption {
-  id: number;
-  name: string;
-  depth: number;
-}
-
-const STATUS_LABEL: Record<Status, string> = {
-  queued: 'Menunggu',
-  downloading: 'Mengunduh',
-  uploading: 'Upload ke Drive',
-  done: 'Selesai',
-  failed: 'Gagal',
-  cancelled: 'Dibatalkan',
-};
-const PILL: Record<Status, string> = {
+const PILL: Record<ImportItem['status'], string> = {
   queued: '',
   downloading: 'running',
   uploading: 'running',
@@ -64,122 +25,6 @@ const PILL: Record<Status, string> = {
   failed: 'failed',
   cancelled: '',
 };
-const VIDEO_STATUS: Record<string, string> = { pending: 'menunggu diproses', processing: 'diproses', ready: 'siap ditonton', failed: 'gagal diproses' };
-
-interface AddResult {
-  added: number;
-  skipped: { input: string; reason: string }[];
-  playlists: { id: string; title: string; total: number; added: number }[];
-}
-
-function AddForm({ maxHeight, maxPlaylistItems }: { maxHeight: number; maxPlaylistItems: number }) {
-  const qc = useQueryClient();
-  const [urls, setUrls] = useState('');
-  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [playlistMode, setPlaylistMode] = useState<'all' | 'video'>('all');
-  const [result, setResult] = useState<AddResult | null>(null);
-  const cats = useQuery({ queryKey: ['categories', 'all'], queryFn: () => apiGet<{ items: CategoryOption[] }>('/categories/all'), staleTime: 60_000 });
-  const add = useMutation({
-    mutationFn: () => apiPost<AddResult>('/admin/imports', { urls, visibility, categoryId, playlistMode }),
-    onSuccess: (res) => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'imports'] });
-      toast(`${res.added} video masuk antrean${res.skipped.length ? ` · ${res.skipped.length} dilewati` : ''}`);
-      setResult(res);
-      if (res.added) setUrls('');
-    },
-    onError: (e) => toast(errorMessage(e)),
-  });
-  const count = urls.split(/[\s,]+/).filter(Boolean).length;
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (count) add.mutate();
-  };
-
-  return (
-    <form className="dv-studio-card" onSubmit={submit}>
-      <h2 className="dv-studio-card__title">Tambah link</h2>
-      <p className="dv-studio-card__subtitle">
-        Video diunduh satu per satu di server dengan kualitas tertinggi sampai {maxHeight}p (utamakan H.264 + AAC agar langsung bisa diputar di semua
-        perangkat), lalu diupload ke folder Google Drive dan diproses seperti video lain. Pastikan Anda berhak mengunduh dan menayangkan video tersebut.
-      </p>
-      <div className="dv-form">
-        <textarea
-          className="dv-textarea"
-          rows={6}
-          value={urls}
-          onChange={(e) => setUrls(e.target.value)}
-          placeholder={'Tempel link video atau playlist YouTube, satu per baris\nhttps://www.youtube.com/watch?v=…\nhttps://youtu.be/…\nhttps://www.youtube.com/playlist?list=…'}
-          aria-label="Link YouTube"
-          spellCheck={false}
-        />
-        <div className="dv-row" style={{ flexWrap: 'wrap', gap: 12 }}>
-          <select className="dv-select" style={{ width: 170 }} value={visibility} onChange={(e) => setVisibility(e.target.value as 'public' | 'private')} aria-label="Visibilitas">
-            <option value="public">Publik</option>
-            <option value="private">Privat</option>
-          </select>
-          <select
-            className="dv-select"
-            style={{ width: 260 }}
-            value={categoryId ?? ''}
-            onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
-            aria-label="Kategori"
-          >
-            <option value="">Tanpa kategori (folder utama)</option>
-            {(cats.data?.items ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {'— '.repeat(Math.max(0, c.depth - 1))}
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="dv-select"
-            style={{ width: 300 }}
-            value={playlistMode}
-            onChange={(e) => setPlaylistMode(e.target.value as 'all' | 'video')}
-            aria-label="Link berisi playlist"
-            title="Untuk link video yang juga berisi playlist (…watch?v=…&list=…)"
-          >
-            <option value="all">Link berisi playlist: unduh semua</option>
-            <option value="video">Link berisi playlist: video itu saja</option>
-          </select>
-          <Button type="submit" variant="primary" disabled={!count || add.isPending}>
-            {add.isPending ? 'Menambahkan…' : count > 1 ? `Tambah ${count} link ke antrean` : 'Tambah ke antrean'}
-          </Button>
-        </div>
-        <p className="dv-text-secondary" style={{ fontSize: '1.2rem', margin: 0 }}>
-          Playlist dibuka otomatis (maksimal {maxPlaylistItems} video per playlist) dan diunduh sesuai urutannya. Mix/Radio YouTube dan playlist pribadi
-          (Tonton Nanti/Disukai) tidak didukung.
-        </p>
-        {result && (result.playlists.length > 0 || result.skipped.length > 0) && (
-          <div className="dv-banner dv-banner--info dv-import-result">
-            {result.playlists.map((p) => (
-              <div key={p.id}>
-                Playlist <strong>{p.title}</strong>: {p.added} dari {p.total} video masuk antrean
-              </div>
-            ))}
-            {result.skipped.length > 0 && (
-              <details>
-                <summary>{result.skipped.length} dilewati</summary>
-                <ul>
-                  {result.skipped.map((x, i) => (
-                    <li key={i}>
-                      <span className="dv-import-result__name">{x.input}</span> — {x.reason}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-            <Button size="sm" variant="text" onClick={() => setResult(null)}>
-              Tutup
-            </Button>
-          </div>
-        )}
-      </div>
-    </form>
-  );
-}
 
 function ToolCard() {
   const qc = useQueryClient();
@@ -222,6 +67,7 @@ function ToolCard() {
 export function ImportsPage() {
   useDocumentTitle('Impor YouTube - Studio');
   const qc = useQueryClient();
+  const site = useSite();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'imports'],
     queryFn: () => apiGet<ImportsResponse>('/admin/imports?limit=200'),
@@ -235,7 +81,19 @@ export function ImportsPage() {
     <div className="dv-studio-page">
       <h1 className="dv-studio-page__title">Impor dari YouTube</h1>
       <ToolCard />
-      <AddForm maxHeight={data?.maxHeight ?? 1080} maxPlaylistItems={data?.maxPlaylistItems ?? 500} />
+      <ImportForm
+        className="dv-studio-card"
+        endpoint="/admin/imports"
+        invalidateKey={['admin', 'imports']}
+        maxHeight={data?.maxHeight ?? 1080}
+        maxPlaylistItems={data?.maxPlaylistItems ?? 500}
+        intro={
+          <>
+            Video dari form ini masuk ke <b>channel utama (@{site.channelHandle})</b>. Pengguna mengimpor ke channel masing-masing lewat tombol Upload →
+            Impor dari YouTube; semua impor memakai antrean yang sama di bawah ini.
+          </>
+        }
+      />
       {data && (
         <div className="dv-stat-row" style={{ marginTop: 24 }}>
           {(
@@ -262,6 +120,7 @@ export function ImportsPage() {
             <thead>
               <tr>
                 <th>Video</th>
+                <th>Channel</th>
                 <th>Status</th>
                 <th>Kualitas</th>
                 <th>Waktu</th>
@@ -272,41 +131,26 @@ export function ImportsPage() {
               {data.items.map((it) => (
                 <tr key={it.id}>
                   <td className="dv-table__title">
-                    <div className="dv-import-row">
-                      <div className="dv-import-row__thumb">
-                        {it.video?.thumb ? <img src={it.video.thumb} alt="" loading="lazy" /> : <Icon name="download" />}
-                        {it.durationSec != null && <span className="dv-import-row__dur">{formatDuration(it.durationSec)}</span>}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="dv-table__primary dv-import-row__title" title={it.title ?? it.url}>
-                          {it.video ? (
-                            <Link className="dv-link" to={`/watch?v=${it.video.id}`}>
-                              {it.video.title ?? it.title}
-                            </Link>
-                          ) : (
-                            (it.title ?? it.ytId)
-                          )}
-                        </div>
-                        <div className="dv-text-secondary dv-import-row__meta">
-                          {it.channel && <span>{it.channel} · </span>}
-                          <a className="dv-link" href={it.url} target="_blank" rel="noreferrer noopener">
-                            youtube.com/…{it.ytId}
-                          </a>
-                          {' · '}
-                          {it.visibility === 'private' ? 'Privat' : 'Publik'}
-                          {it.category && ` · ${it.category}`}
-                        </div>
-                        {it.playlist && (
-                          <div className="dv-text-secondary dv-import-row__meta" title={it.playlist.title ?? it.playlist.id}>
-                            Playlist: {it.playlist.title ?? it.playlist.id}
-                            {it.playlist.index != null && ` · #${it.playlist.index}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <ImportVideoCell it={it} />
+                  </td>
+                  <td>
+                    {it.owner ? (
+                      <Link className="dv-link" to={`/@${it.owner.username}`} title={it.owner.name ?? undefined}>
+                        @{it.owner.username}
+                      </Link>
+                    ) : it.owner === null ? (
+                      <span className="dv-text-secondary">Channel utama</span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td>
                     <span className={`dv-pill ${PILL[it.status] ? `dv-pill--${PILL[it.status]}` : ''}`}>{STATUS_LABEL[it.status]}</span>
+                    {it.status === 'queued' && it.position != null && (
+                      <div className="dv-text-secondary" style={{ fontSize: '1.2rem', marginTop: 4 }}>
+                        urutan ke-{it.position} dari {data.queue.waiting}
+                      </div>
+                    )}
                     {(it.status === 'downloading' || it.status === 'uploading') && (
                       <div className="dv-progress" aria-label={`${it.progress}%`}>
                         <div className="dv-progress__bar" style={{ width: `${it.progress}%` }} />
@@ -319,7 +163,7 @@ export function ImportsPage() {
                     )}
                     {it.retryAt && <div className="dv-text-secondary">dicoba lagi {formatDateTime(it.retryAt)}</div>}
                     {it.error && (
-                      <div className="dv-table__error" title={it.error}>
+                      <div className={it.status === 'cancelled' ? 'dv-text-secondary' : 'dv-table__error'} title={it.error} style={{ fontSize: '1.2rem' }}>
                         {it.error}
                       </div>
                     )}

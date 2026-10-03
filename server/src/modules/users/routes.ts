@@ -12,6 +12,7 @@ import { requireAdmin } from '../../plugins/auth.js';
 import { audit } from '../audit/service.js';
 import { avatarColorSchema } from '../auth/routes.js';
 import { settings } from '../settings/service.js';
+import { dropUserImports } from '../imports/routes.js';
 
 const GB = 1024 ** 3;
 const AVATAR_COLORS = ['#5c6bc0', '#26a69a', '#ef6c00', '#8e24aa', '#00897b', '#3949ab', '#d81b60', '#6d4c41', '#43a047', '#f4511e'];
@@ -220,6 +221,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return n;
     });
     await removePublic('avatars', `${id}-`);
+    await dropUserImports(id, body.videos === 'transfer');
     for (const v of owned) {
       if (body.videos === 'delete') {
         trashFile(v.drive_file_id).catch((err) => req.log.warn({ err, video: v.public_id }, 'gagal memindahkan video ke Trash Drive'));
