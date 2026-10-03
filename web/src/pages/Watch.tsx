@@ -20,6 +20,7 @@ import { fetchPlaylist, playlistKey, playlistWatchUrl } from '../lib/playlistQue
 import { fetchVideo, videoKey, watchUrl } from '../lib/videoQueries';
 import type { Player } from '../player/Player';
 import { PlayerView, toUpNext } from '../player/PlayerView';
+import { useRecommend } from '../stores/recommend';
 import { useSession } from '../stores/session';
 import { resumePosition, useWatch } from '../stores/watch';
 
@@ -182,8 +183,8 @@ function Unavailable({ title = 'Video tidak tersedia', message }: { title?: stri
   );
 }
 
-function relatedQueryKey(id: string, chip: Chip) {
-  return ['related', id, chip] as const;
+function relatedQueryKey(id: string, chip: Chip, seed: string) {
+  return ['related', id, chip, seed] as const;
 }
 
 export function WatchPage() {
@@ -221,10 +222,16 @@ export function WatchPage() {
 
   useEffect(() => setChip('all'), [id]);
 
+  // Seed per tayangan: rekomendasi sedikit berbeda tiap video dibuka, stabil selama halaman ini (REKOMENDASI.md §5).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const seed = useMemo(() => Math.random().toString(36).slice(2, 12), [id]);
   const relatedFetch = (c: Chip) => (pageParam: string, signal: AbortSignal) =>
-    apiGet<RelatedPage>(`/videos/${id}/related?${new URLSearchParams({ ...(pageParam ? { cursor: pageParam } : {}), ...(c !== 'all' ? { filter: c } : {}) })}`, signal);
+    apiGet<RelatedPage>(
+      `/videos/${id}/related?${new URLSearchParams({ seed, ...(pageParam ? { cursor: pageParam } : {}), ...(c !== 'all' ? { filter: c } : {}) })}`,
+      signal,
+    );
   const allRelated = useInfiniteQuery({
-    queryKey: relatedQueryKey(id, 'all'),
+    queryKey: relatedQueryKey(id, 'all', seed),
     queryFn: ({ pageParam, signal }) => relatedFetch('all')(pageParam, signal),
     initialPageParam: '',
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -232,7 +239,7 @@ export function WatchPage() {
     staleTime: 5 * 60_000,
   });
   const chipRelated = useInfiniteQuery({
-    queryKey: relatedQueryKey(id, chip),
+    queryKey: relatedQueryKey(id, chip, seed),
     queryFn: ({ pageParam, signal }) => relatedFetch(chip)(pageParam, signal),
     initialPageParam: '',
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -240,7 +247,9 @@ export function WatchPage() {
     staleTime: 5 * 60_000,
   });
   const list = chip === 'all' ? allRelated : chipRelated;
-  const allItems = useMemo(() => allRelated.data?.pages.flatMap((p) => p.items) ?? [], [allRelated.data]);
+  const dismissed = useRecommend((s) => s.dismissed);
+  // Tanpa video yang ditandai "Tidak tertarik" (Berikutnya, layar akhir).
+  const allItems = useMemo(() => (allRelated.data?.pages.flatMap((p) => p.items) ?? []).filter((v) => !dismissed.has(v.id)), [allRelated.data, dismissed]);
   const listItems = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data]);
   const chipsInfo = allRelated.data?.pages[0]?.chips;
 
@@ -290,9 +299,9 @@ export function WatchPage() {
 
   // Progres: tiap 15 dtk saat bermain, saat jeda/selesai (dari pemutar), saat mulai, dan saat halaman ditutup.
   const saveProgress = useCallback(
-    (position: number, duration: number, keepalive = false) => {
+    (position: number, duration: number, keepalive = false, start = false) => {
       const v = videoRef.current;
-      if (v) record(v, position, duration, loggedIn, keepalive);
+      if (v) record(v, position, duration, loggedIn, keepalive, start);
     },
     [record, loggedIn],
   );
@@ -302,7 +311,7 @@ export function WatchPage() {
     const v = videoRef.current;
     if (!v || startedFor.current === v.id) return;
     startedFor.current = v.id;
-    saveProgress(playerRef.current?.currentTime ?? 0, v.durationSec ?? 0);
+    saveProgress(playerRef.current?.currentTime ?? 0, v.durationSec ?? 0, false, true);
   }, [saveProgress]);
   useEffect(() => {
     const onHide = () => {
@@ -434,7 +443,7 @@ export function WatchPage() {
           </div>
         )}
         {listItems.map((v) => (
-          <CompactVideo key={v.id} video={v} />
+          <CompactVideo key={v.id} video={v} dismissible={chip !== 'channel'} />
         ))}
         {(list.isPending || list.isFetchingNextPage) && !notFound && Array.from({ length: 8 }, (_, i) => <CompactSkeleton key={i} />)}
         <InfiniteSentinel onVisible={loadMore} disabled={!list.hasNextPage || list.isFetchingNextPage} />

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Instance uji: fake-drive (port 3298) + aplikasi (port 3299, DB dummy_test) — TIDAK menyentuh produksi.
 # Pemakaian:
-#   bash scripts/dev/test-instance.sh start [--reseed]   # build harus sudah ada (npm run build)
+#   bash scripts/dev/test-instance.sh start [--reseed]   # build server harus sudah ada (npm run build -w server)
+#   Frontend uji di $QA/web-dist (BUKAN web/dist: index.html di sana langsung dipakai produksi) →
+#   build dengan: npx -w web vite build --outDir $QA/web-dist --emptyOutDir
 #   bash scripts/dev/test-instance.sh stop
 #   bash scripts/dev/test-instance.sh reset-db            # kosongkan DB uji + storage uji
 #   Di luar server (Claude cloud): ROOT diambil dari lokasi skrip, mysql = `mariadb`/`mysql` di PATH,
@@ -30,7 +32,7 @@ DB_NAME=dummy_test
 APP_KEY=base64:$(openssl rand -base64 32)
 INTERNAL_TOKEN=$(openssl rand -hex 32)
 STORAGE_DIR=$QA/storage-test
-WEB_DIST_DIR=$ROOT/web/dist
+WEB_DIST_DIR=$QA/web-dist
 LOG_LEVEL=info
 ADMIN_USERNAME=admin
 ADMIN_INITIAL_PASSWORD=admin12345

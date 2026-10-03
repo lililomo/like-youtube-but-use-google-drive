@@ -903,7 +903,7 @@ PlaylistSummary = { id; title; visibility; itemCount; thumb; owner: {name, handl
 | GET `/api/search/suggest` | publik | `?q=` → maks 8 judul |
 | GET `/api/videos/:id` | sesuai §13 | `VideoDetail` |
 | GET `/api/videos/:id/sources` | sesuai §13 | sources baru (refresh signature) |
-| GET `/api/videos/:id/related` | sesuai §13 | `?cursor=&filter=all|channel|related` maks 60 total; halaman pertama `all` menyertakan `chips {channel, related}` (chip kolom kanan) |
+| GET `/api/videos/:id/related` | sesuai §13 | `?cursor=&seed=&filter=all|channel|related` maks 60 total; halaman pertama `all` menyertakan `chips {channel, related}` (chip kolom kanan) |
 | POST `/api/videos/:id/view` | publik | hitung tayangan (dedupe) |
 | PATCH `/api/videos/:id` | pemilik/admin | `{title?, visibility?, categoryId?}` — title (1–100 karakter) → rename file Drive (ekstensi dipertahankan) **dan file subtitle `<judul>.*`** agar pencocokan subtitle tetap jalan; visibility → `appProperties.dvVis`; categoryId → pindah ke folder kategori (null = folder root) |
 | DELETE `/api/videos/:id` | pemilik/admin | trash file Drive + soft delete + `delete_assets` |
@@ -1166,13 +1166,13 @@ async function enterFullscreen() {
 
 ## 17. Feed, Pencarian, Rekomendasi, Tayangan, Histori
 
-- **Feed** `latest`: `ORDER BY published_at DESC, id DESC`; `popular`: `ORDER BY view_count DESC, id DESC`; kategori menyertakan sub-kategori (`category_id IN (descendants)`). Kursor = nilai urut terakhir + id.
-- **Chip beranda**: "Semua" (latest), "Terbaru diupload" (latest, hanya `source='upload'`) — opsional, "Populer", lalu kategori (yang punya video). Chip disembunyikan bila tidak ada kategori.
+- **Feed** `for_you` (default sejak 2026-10-03, chip "Semua"): beranda personal — lihat [REKOMENDASI.md](REKOMENDASI.md) §4; `?seed=` dari klien, kursor = offset. `latest`: `ORDER BY published_at DESC, id DESC`; `popular`: `ORDER BY view_count DESC, id DESC`; kategori menyertakan sub-kategori (`category_id IN (descendants)`). Kursor = nilai urut terakhir + id.
+- **Chip beranda**: "Semua" (`for_you`), "Terbaru" (`latest`), "Populer", lalu kategori (yang punya video; personal di dalam kategori itu).
 - **Pencarian**: normalisasi query sama seperti `search_text`. Token ≥ 3 huruf → `MATCH(search_text) AGAINST('+tok1* +tok2*' IN BOOLEAN MODE)`; ada token < 3 huruf → tambahan `search_text LIKE '%tok%'`. Urut: relevansi, lalu `view_count`. Playlist publik dicocokkan dengan `title LIKE` (maks 3, hanya halaman pertama).
 - **Saran**: `search_text LIKE 'q%' OR search_text LIKE '% q%'` urut `view_count`, maks 8; ditambah riwayat pencarian lokal yang cocok (ikon jam, bisa dihapus).
-- **Rekomendasi** (`related`): kandidat (listable, ≠ video ini): 100 terbaru di kategori sama, 50 dari pemilik sama, 50 terpopuler, 50 terbaru. Skor = `3·samaKategori + 2·samaPemilik + 1.5·jaccard(token judul) + 0.5·log10(views+1) + 1·(terbit ≤ 30 hari) + jitter(0..1, seed = videoId + tanggal)`. Cache hasil per video 10 menit (LRU 2000). Item pertama = "berikutnya" untuk autoplay.
+- **Rekomendasi** (`related`): sejak 2026-10-03 dihitung modul `server/src/modules/recommend` — kemiripan konten/seri (IDF) + co-watch + kebiasaan viewer + episode berikutnya, lihat [REKOMENDASI.md](REKOMENDASI.md) §5; `?seed=` per tayangan halaman. Item pertama = "berikutnya" untuk autoplay.
 - **Tayangan**: dedupe key `sha256(viewerKey + videoId)` di LRU (TTL 6 jam, 100k entri); `viewerKey` = `u<id>` / `g<guestHash>` / `ip+ua`. Penambahan diakumulasi di memori dan di-flush tiap 10 dtk (`UPDATE videos SET view_count = view_count + ? WHERE id = ?`).
-- **Histori** (user): upsert `watch_history` saat progres; daftar `/feed/history` urut `watched_at DESC`, dikelompokkan "Hari ini", "Kemarin", "Minggu ini", tanggal. Tamu: dari `localStorage`.
+- **Histori** (user): upsert `watch_history` saat progres (+ `max_position_sec`, `plays` bila `start`); progres tamu → `guest_watch` per `dv_gid` (hanya sinyal rekomendasi); daftar `/feed/history` urut `watched_at DESC`, dikelompokkan "Hari ini", "Kemarin", "Minggu ini", tanggal. Tamu: dari `localStorage`.
 
 ---
 

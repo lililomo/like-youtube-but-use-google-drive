@@ -108,6 +108,12 @@ for (const [name, c] of [
   check(`${name}: tidak ada di saran`, !sug.includes(P.title), sug.join(','));
   const rel = (await c.get(`/api/videos/${other.id}/related`)).json.items;
   check(`${name}: tidak ada di rekomendasi`, !has(rel, P.id));
+  // Rekomendasi personal (REKOMENDASI.md): seluruh peringkat beranda & kolom kanan, bukan hanya halaman pertama.
+  const homeAll = (await c.get('/api/feed?sort=for_you&seed=sec1&limit=48')).json;
+  check(`${name}: tidak ada di beranda personal`, !has(homeAll.items, P.id));
+  check(`${name}: tidak ada di rekomendasi Terkait`, !has((await c.get(`/api/videos/${other.id}/related?filter=related&limit=30`)).json.items, P.id));
+  check(`${name}: "Tidak tertarik" pada video privat → 404`, (await c.post('/api/recommend/not-interested', { videoId: P.id })).status === 404);
+  check(`${name}: progres video privat diabaikan (204 tanpa error)`, (await c.post('/api/progress', { videoId: P.id, positionSec: 10, durationSec: 20, start: true })).status === 204);
   const ch = (await c.get('/api/channels/@budi')).json;
   check(`${name}: tidak ada di channel & jumlah video tidak menghitung privat`, !has(ch.items, P.id));
   const pd = (await c.get(`/api/playlists/${pub.id}`)).json;
@@ -126,7 +132,8 @@ for (const [name, c] of [
 }
 const myCount = (await budi.get('/api/channels/@budi')).json.channel.videoCount;
 const guestCount = (await guest.get('/api/channels/@budi')).json.channel.videoCount;
-check('jumlah video channel: pemilik ≥ tamu (privat tidak dihitung untuk tamu)', myCount > guestCount, `${myCount} vs ${guestCount}`);
+// Sejak 2026-10-03 video privat tidak dihitung di halaman channel untuk siapa pun (termasuk pemilik) — discoverableSql.
+check('jumlah video channel: privat tidak dihitung, pemilik = tamu', myCount === guestCount, `${myCount} vs ${guestCount}`);
 
 // CSRF & Origin
 check('CSRF: POST tanpa header → 403', (await budi.post('/api/playlists', { title: 'x' }, { noCsrf: true })).status === 403);

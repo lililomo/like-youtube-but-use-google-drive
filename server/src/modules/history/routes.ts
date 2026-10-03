@@ -4,7 +4,7 @@ import { exec, query, queryOne } from '../../db.js';
 import { isVideoId } from '../../lib/ids.js';
 import { parse } from '../../lib/validate.js';
 import { canWatch } from '../../plugins/access.js';
-import { requireUser } from '../../plugins/auth.js';
+import { ensureGuestId, requireUser } from '../../plugins/auth.js';
 import { VIDEO_SELECT, toSummary, type VideoRecord } from '../videos/model.js';
 
 const PAGE = 30;
@@ -14,29 +14,34 @@ const progressBody = z.object({
   videoId: z.string().refine(isVideoId, 'ID video tidak valid'),
   positionSec: z.number().min(0).max(1e7),
   durationSec: z.number().min(0).max(1e7),
+  /** Awal pemutaran (bukan simpan berkala) → jumlah putar bertambah (sinyal rekomendasi "ditonton berulang"). */
+  start: z.boolean().optional(),
 });
 
 type HistoryRow = VideoRecord & { position_sec: number; duration_sec: number; watched_at: Date };
 
 /**
- * Progres & histori tonton (SPEC §17). Hanya user login — tamu menyimpan di localStorage.
- * Histori hanya menampilkan video yang masih boleh ditonton viewer.
+ * Progres & histori tonton (SPEC §17). Halaman Histori hanya untuk user login (tamu: localStorage), progres tamu
+ * disimpan di server hanya sebagai sinyal rekomendasi. Histori hanya menampilkan video yang masih boleh ditonton viewer.
  */
 export async function historyRoutes(app: FastifyInstance): Promise<void> {
   // Dipanggil tiap 15 dtk saat bermain, saat jeda, dan saat pagehide (fetch keepalive).
+  // Tamu: disimpan per dv_gid di guest_watch — hanya untuk rekomendasi (Histori tamu tetap dari perangkat).
   app.post('/api/progress', async (req, reply) => {
-    const userId = req.viewer.userId;
-    if (!userId) return reply.code(204).send();
     const body = parse(progressBody, req.body);
     const v = await queryOne<VideoRecord>(`${VIDEO_SELECT} WHERE v.public_id = ?`, [body.videoId]);
     if (!v || !canWatch(v, req.viewer)) return reply.code(204).send();
     const duration = Math.round(body.durationSec || (v.duration_ms ?? 0) / 1000);
     // Posisi disimpan apa adanya (bar merah thumbnail); aturan resume (> 30 dtk & < durasi − 15) di klien.
     const pos = Math.min(Math.floor(body.positionSec), duration || Number.MAX_SAFE_INTEGER);
+    const userId = req.viewer.userId;
+    const [table, ownerCol, owner] = userId ? ['watch_history', 'user_id', userId] : ['guest_watch', 'guest_hash', ensureGuestId(req, reply)];
     await exec(
-      `INSERT INTO watch_history (user_id, video_id, position_sec, duration_sec, watched_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())
-       ON DUPLICATE KEY UPDATE position_sec = VALUES(position_sec), duration_sec = VALUES(duration_sec), watched_at = VALUES(watched_at)`,
-      [userId, v.id, pos, duration],
+      `INSERT INTO ${table} (${ownerCol}, video_id, position_sec, max_position_sec, duration_sec, plays, first_watched_at, watched_at)
+       VALUES (?, ?, ?, ?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+       ON DUPLICATE KEY UPDATE position_sec = VALUES(position_sec), max_position_sec = GREATEST(max_position_sec, VALUES(position_sec)),
+         duration_sec = VALUES(duration_sec), plays = plays + ?, watched_at = VALUES(watched_at)`,
+      [owner, v.id, pos, pos, duration, body.start ? 1 : 0],
     );
     return reply.code(204).send();
   });

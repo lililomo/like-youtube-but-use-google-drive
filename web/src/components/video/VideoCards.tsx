@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { formatRelative, formatViews } from '../../lib/format';
 import type { VideoSummary } from '../../lib/types';
 import { cancelPrefetch, prefetchVideo, watchUrl } from '../../lib/videoQueries';
+import { useRecommend } from '../../stores/recommend';
 import { Icon } from '../icons/Icon';
 import { Avatar, Skeleton } from '../ui/misc';
 import { Thumbnail } from './Thumbnail';
@@ -30,10 +31,25 @@ function Meta({ video }: { video: VideoSummary }) {
   );
 }
 
+/** Pengganti kartu setelah "Tidak tertarik" (seperti YouTube): pesan + URUNGKAN. */
+function Dismissed({ id, compact = false }: { id: string; compact?: boolean }) {
+  const undo = useRecommend((s) => s.undo);
+  return (
+    <div className={`dv-dismissed${compact ? ' dv-dismissed--compact' : ''}`}>
+      <p className="dv-dismissed__text">Video dihapus dari rekomendasi. Kami akan menyesuaikan saran untuk Anda.</p>
+      <button type="button" className="dv-btn dv-btn--text dv-btn--sm" onClick={() => void undo(id)}>
+        Urungkan
+      </button>
+    </div>
+  );
+}
+
 /** Kartu grid beranda (thumbnail 16:9 radius 12px + avatar + judul 2 baris). */
-export function VideoCard({ video, eager = false }: { video: VideoSummary; eager?: boolean }) {
+export function VideoCard({ video, eager = false, dismissible = false }: { video: VideoSummary; eager?: boolean; dismissible?: boolean }) {
   const prefetch = usePrefetch(video.id);
+  const dismissed = useRecommend((s) => dismissible && s.dismissed.has(video.id));
   const href = watchUrl(video.id);
+  if (dismissed) return <Dismissed id={video.id} />;
   return (
     <div className="dv-vcard">
       <Link to={href} className="dv-vcard__thumb" tabIndex={-1} aria-hidden="true" {...prefetch}>
@@ -57,7 +73,7 @@ export function VideoCard({ video, eager = false }: { video: VideoSummary; eager
           </div>
         </div>
         <div className="dv-vcard__menu">
-          <VideoMenu video={video} />
+          <VideoMenu video={video} dismissible={dismissible} />
         </div>
       </div>
     </div>
@@ -125,8 +141,22 @@ export function ResultItemSkeleton() {
 }
 
 /** Item ringkas (rekomendasi di halaman tonton). */
-export function CompactVideo({ video, active = false, index, onClick }: { video: VideoSummary; active?: boolean; index?: number; onClick?: () => void }) {
+export function CompactVideo({
+  video,
+  active = false,
+  index,
+  onClick,
+  dismissible = false,
+}: {
+  video: VideoSummary;
+  active?: boolean;
+  index?: number;
+  onClick?: () => void;
+  dismissible?: boolean;
+}) {
   const prefetch = usePrefetch(video.id);
+  const dismissed = useRecommend((s) => dismissible && s.dismissed.has(video.id));
+  if (dismissed) return <Dismissed id={video.id} compact />;
   return (
     <div className={`dv-compact${active ? ' is-active' : ''}`}>
       {index !== undefined && <span className="dv-compact__index">{active ? <Icon name="play-arrow" size={16} /> : index}</span>}
@@ -145,7 +175,7 @@ export function CompactVideo({ video, active = false, index, onClick }: { video:
         </div>
       </Link>
       <div className="dv-compact__menu">
-        <VideoMenu video={video} />
+        <VideoMenu video={video} dismissible={dismissible} />
       </div>
     </div>
   );

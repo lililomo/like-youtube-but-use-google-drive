@@ -32,6 +32,10 @@ export class LruCache<K, V> {
     this.map.delete(key);
   }
 
+  deleteWhere(pred: (key: K) => boolean): void {
+    for (const k of [...this.map.keys()]) if (pred(k)) this.map.delete(k);
+  }
+
   clear(): void {
     this.map.clear();
   }

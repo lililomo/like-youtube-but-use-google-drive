@@ -25,6 +25,8 @@ import { subtitleRoutes } from './modules/subtitles/routes.js';
 import { processingRoutes } from './modules/processing/routes.js';
 import { importRoutes } from './modules/imports/routes.js';
 import { publicVideoRoutes } from './modules/videos/public.js';
+import { recommendRoutes } from './modules/recommend/routes.js';
+import { setRecommendLogger } from './modules/recommend/catalog.js';
 import { ogMeta } from './modules/videos/og.js';
 import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
@@ -172,6 +174,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(subtitleRoutes);
   await app.register(processingRoutes);
   await app.register(publicVideoRoutes);
+  await app.register(recommendRoutes);
+  setRecommendLogger(app.log.child({ mod: 'recommend' }));
 
   // Produksi: /media disajikan nginx. Instance uji (SERVE_STATIC=1): disajikan Node.
   if (config.SERVE_STATIC) {

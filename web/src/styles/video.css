@@ -517,3 +517,34 @@
   max-height: calc(100vh - 48px);
   overflow-y: auto;
 }
+
+/* "Tidak tertarik" — pengganti kartu (REKOMENDASI.md) */
+.dv-dismissed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  aspect-ratio: 16 / 9;
+  padding: 16px;
+  border-radius: var(--radius-thumb);
+  background: var(--bg-secondary);
+  min-width: 0;
+}
+.dv-dismissed--compact {
+  aspect-ratio: auto;
+  min-height: 94px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-thumb-sm);
+  padding: 12px;
+}
+.dv-dismissed__text {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 2rem;
+  color: var(--text-secondary);
+}
+.dv-dismissed--compact .dv-dismissed__text {
+  font-size: 1.2rem;
+  line-height: 1.8rem;
+}

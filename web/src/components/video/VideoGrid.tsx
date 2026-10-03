@@ -27,12 +27,24 @@ function useColumns() {
   return { ref, cols };
 }
 
-export function VideoGrid({ videos, loading = false, skeletonCount = 12, footer }: { videos: VideoSummary[]; loading?: boolean; skeletonCount?: number; footer?: ReactNode }) {
+export function VideoGrid({
+  videos,
+  loading = false,
+  skeletonCount = 12,
+  footer,
+  dismissible = false,
+}: {
+  videos: VideoSummary[];
+  loading?: boolean;
+  skeletonCount?: number;
+  footer?: ReactNode;
+  dismissible?: boolean;
+}) {
   const { ref, cols } = useColumns();
   return (
     <div ref={ref} className="dv-grid" style={{ ['--cols' as string]: cols }}>
       {videos.map((v, i) => (
-        <VideoCard key={v.id} video={v} eager={i < cols} />
+        <VideoCard key={v.id} video={v} eager={i < cols} dismissible={dismissible} />
       ))}
       {loading && Array.from({ length: videos.length ? cols : skeletonCount }, (_, i) => <VideoCardSkeleton key={`s${i}`} />)}
       {footer}

@@ -13,6 +13,9 @@ async function hourly(log: FastifyBaseLogger): Promise<void> {
     await exec('DELETE FROM oauth_states WHERE expires_at < UTC_TIMESTAMP()');
     await exec("UPDATE uploads SET status = 'expired' WHERE status = 'uploading' AND expires_at < UTC_TIMESTAMP()");
     await exec("DELETE FROM jobs WHERE status IN ('done','cancelled') AND finished_at < UTC_TIMESTAMP() - INTERVAL 14 DAY");
+    // Sinyal rekomendasi tamu (REKOMENDASI.md): histori > 180 hari, "Tidak tertarik" > 400 hari (umur cookie dv_gid).
+    await exec('DELETE FROM guest_watch WHERE watched_at < UTC_TIMESTAMP() - INTERVAL 180 DAY');
+    await exec('DELETE FROM rec_feedback WHERE guest_hash IS NOT NULL AND created_at < UTC_TIMESTAMP() - INTERVAL 400 DAY');
   } catch (err) {
     log.warn({ err }, 'pembersihan DB gagal');
   }

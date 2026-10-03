@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { VideoSummary } from '../../lib/types';
 import { watchUrl } from '../../lib/videoQueries';
+import { useRecommend } from '../../stores/recommend';
 import { toast } from '../../stores/toast';
 import { IconButton } from '../ui/Button';
 import { MenuItem, Popup } from '../ui/Popup';
@@ -35,8 +36,9 @@ export async function shareVideo(video: Pick<VideoSummary, 'id' | 'title'>): Pro
   toast('Link disalin ke papan klip');
 }
 
-/** Tombol ⋮ pada kartu video. */
-export function VideoMenu({ video }: { video: VideoSummary }) {
+/** Tombol ⋮ pada kartu video. `dismissible`: rekomendasi (beranda/kolom kanan) → ada "Tidak tertarik". */
+export function VideoMenu({ video, dismissible = false }: { video: VideoSummary; dismissible?: boolean }) {
+  const dismiss = useRecommend((s) => s.dismiss);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
@@ -66,6 +68,17 @@ export function VideoMenu({ video }: { video: VideoSummary }) {
         >
           Bagikan
         </MenuItem>
+        {dismissible && (
+          <MenuItem
+            icon="block"
+            onClick={() => {
+              setOpen(false);
+              void dismiss(video.id);
+            }}
+          >
+            Tidak tertarik
+          </MenuItem>
+        )}
       </Popup>
     </>
   );

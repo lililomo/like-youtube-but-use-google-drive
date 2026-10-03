@@ -1,12 +1,13 @@
 import { create } from 'zustand';
-import { api } from '../lib/api';
+import { api, apiDelete } from '../lib/api';
 import { storage } from '../lib/storage';
 import type { VideoSummary } from '../lib/types';
 
 /**
  * Progres & histori tonton (SPEC §15.8, §17).
  * - User login: dikirim ke server (POST /api/progress); salinan sesi di memori agar bar merah thumbnail langsung berubah.
- * - Tamu: localStorage `dv.progress` (maks 500) & `dv.history` (maks 200), hanya di perangkat ini.
+ * - Tamu: localStorage `dv.progress` (maks 500) & `dv.history` (maks 200) untuk Histori & resume; progres juga dikirim
+ *   ke server (guest_watch per dv_gid) hanya sebagai sinyal rekomendasi — dihapus bersama histori perangkat.
  */
 const KEY_PROGRESS = 'dv.progress';
 const KEY_HISTORY = 'dv.history';
@@ -26,7 +27,7 @@ export type GuestHistoryItem = Pick<VideoSummary, 'id' | 'title' | 'durationSec'
 interface WatchState {
   progress: Record<string, ProgressEntry>;
   guestHistory: GuestHistoryItem[];
-  record: (video: VideoSummary, position: number, duration: number, loggedIn: boolean, keepalive?: boolean) => void;
+  record: (video: VideoSummary, position: number, duration: number, loggedIn: boolean, keepalive?: boolean, start?: boolean) => void;
   removeGuest: (id: string) => void;
   clearGuest: () => void;
   forget: (id: string) => void;
@@ -43,14 +44,15 @@ export const useWatch = create<WatchState>((set, get) => ({
   progress: storage.get<Record<string, ProgressEntry>>(KEY_PROGRESS, {}),
   guestHistory: storage.get<GuestHistoryItem[]>(KEY_HISTORY, []),
 
-  record(video, position, duration, loggedIn, keepalive = false) {
+  record(video, position, duration, loggedIn, keepalive = false, start = false) {
     const p = Math.max(0, Math.floor(position));
     const d = Math.round(duration || video.durationSec || 0);
     const entry = { p, d, at: Date.now() };
     const progress = { ...get().progress, [video.id]: entry };
+    // Tamu juga dikirim: server menyimpannya per dv_gid hanya sebagai sinyal rekomendasi (REKOMENDASI.md).
+    void api('/progress', { method: 'POST', body: { videoId: video.id, positionSec: p, durationSec: d, ...(start ? { start } : {}) }, keepalive }).catch(() => {});
     if (loggedIn) {
       set({ progress });
-      void api('/progress', { method: 'POST', body: { videoId: video.id, positionSec: p, durationSec: d }, keepalive }).catch(() => {});
       return;
     }
     const trimmed = trimProgress(progress);
@@ -73,6 +75,7 @@ export const useWatch = create<WatchState>((set, get) => ({
   },
 
   removeGuest(id) {
+    void apiDelete(`/recommend/guest-history/${id}`).catch(() => {});
     const guestHistory = get().guestHistory.filter((h) => h.id !== id);
     const progress = { ...get().progress };
     delete progress[id];
@@ -82,6 +85,7 @@ export const useWatch = create<WatchState>((set, get) => ({
   },
 
   clearGuest() {
+    void apiDelete('/recommend/guest-history').catch(() => {});
     storage.remove(KEY_HISTORY);
     storage.remove(KEY_PROGRESS);
     set({ guestHistory: [], progress: {} });
