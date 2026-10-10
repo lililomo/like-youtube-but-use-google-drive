@@ -54,6 +54,20 @@ async function resolveFile(v: VideoRecord, q: string): Promise<{ fileId: string;
 
 const PASS_HEADERS = ['content-length', 'content-range', 'etag', 'last-modified'];
 
+const DRIVE_AUTH_REASONS = new Set(['INVALID_GRANT', 'NOT_CONNECTED', 'NOT_CONFIGURED']);
+const DRIVE_QUOTA_REASONS = new Set(['downloadQuotaExceeded', 'userRateLimitExceeded', 'rateLimitExceeded', 'quotaExceeded']);
+
+/** Kode error stream untuk pemutar (dibaca lewat fetch karena elemen video menyamakan semua error HTTP jadi "format tidak didukung"). */
+export function upstreamError(err: DriveError): [number, string, string] {
+  if (DRIVE_AUTH_REASONS.has(err.reason)) {
+    return [503, 'DRIVE_AUTH', 'Server sedang tidak terhubung ke Google Drive, jadi video belum bisa diputar. Admin perlu menghubungkan ulang Google Drive.'];
+  }
+  if (err.status === 429 || DRIVE_QUOTA_REASONS.has(err.reason)) {
+    return [503, 'DRIVE_QUOTA', 'Batas unduhan Google Drive untuk video ini sedang tercapai. Coba lagi nanti.'];
+  }
+  return [502, 'UPSTREAM', 'Gagal mengambil video dari Google Drive. Coba lagi nanti.'];
+}
+
 /** Proxy media Drive → klien dengan Range; batalkan upstream saat klien putus. */
 async function pipeMedia(
   req: FastifyRequest,
@@ -84,7 +98,8 @@ async function pipeMedia(
       }
       if (err.status === 416) return reply.code(416).send(errorBody('BAD_RANGE', 'Range di luar ukuran file'));
       req.log.warn({ err: err.message, status: err.status }, 'stream upstream gagal');
-      return reply.code(502).send(errorBody('UPSTREAM', 'Gagal mengambil video dari Google Drive'));
+      const [status, code, message] = upstreamError(err);
+      return reply.code(status).send(errorBody(code, message));
     }
     throw err;
   }

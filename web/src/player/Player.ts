@@ -741,6 +741,23 @@ export class Player {
       this.retries++;
       // 1) URL bertanda tangan mungkin kedaluwarsa → ambil ulang (maks sekali per 20 dtk).
       if (Date.now() - this.lastRefresh > 20_000) await this.refreshSources();
+      // Elemen video melaporkan balasan HTTP error (mis. 502/503) sebagai "format tidak didukung";
+      // tanyakan server langsung agar pesan & keputusan fallback benar.
+      if (kind === 'error') {
+        const fault = await this.probeSource(this.sources.find((s) => s.q === this.current!.q) ?? this.current);
+        if (this.destroyed) return;
+        if (fault) {
+          if (fault.fatal || this.retries >= 3) {
+            this.showError(fault.message, true);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** (this.retries - 1)));
+          if (this.destroyed) return;
+          this.freezeFrame();
+          this.setSource(this.current, at, resume, this.video.playbackRate || 1);
+          return;
+        }
+      }
       // 2) Format tidak didukung pada percobaan ke-2 → turun ke kualitas lain / compat.
       let target = this.sources.find((s) => s.q === this.current!.q) ?? this.current;
       if (code === 4 && this.retries >= 2) {
@@ -758,6 +775,33 @@ export class Player {
     } finally {
       this.recovering = false;
     }
+  }
+
+  /** Cek 1 byte sumber; null = server melayani normal (error memang dari format/dekoder). */
+  private async probeSource(src: PlayerSource): Promise<{ message: string; fatal: boolean } | null> {
+    let res: Response;
+    try {
+      res = await fetch(src.url, { headers: { Range: 'bytes=0-0' }, credentials: 'same-origin', cache: 'no-store' });
+    } catch {
+      return { message: 'Koneksi terputus. Periksa jaringan Anda lalu coba lagi.', fatal: false };
+    }
+    if (res.ok) {
+      void res.body?.cancel();
+      return null;
+    }
+    let code = '';
+    let message = '';
+    try {
+      const j = (await res.json()) as { error?: { code?: string; message?: string } };
+      code = j.error?.code ?? '';
+      message = j.error?.message ?? '';
+    } catch {
+      /* balasan bukan JSON (mis. halaman error proxy) */
+    }
+    if (res.status === 404) return { message: 'Video tidak ditemukan atau sudah dihapus.', fatal: true };
+    if (res.status === 403) return { message: 'Tautan video kedaluwarsa. Muat ulang halaman lalu coba lagi.', fatal: false };
+    if (code === 'DRIVE_AUTH' || code === 'DRIVE_QUOTA') return { message, fatal: true };
+    return { message: message || 'Server sedang bermasalah. Coba lagi nanti.', fatal: false };
   }
 
   private showError(message: string, retry: boolean): void {
